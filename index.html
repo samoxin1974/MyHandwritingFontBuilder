@@ -1,0 +1,2019 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>✍ MyHandwriting Builder</title>
+  <meta name="description" content="Draw every character by hand and export a real OTF or TTF handwriting font with variations and ligatures.">
+  <link rel="manifest" href="manifest.webmanifest">
+  <meta name="theme-color" content="#1a2340">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Handwriting">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <link rel="icon" type="image/png" href="icon-192.png">
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,700;1,9..144,400&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/opentype.js@1.3.4/dist/opentype.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #f5f0e8; --bg2: #eee8d8; --navy: #1a2340; --navy2: #2d3a5c;
+      --terra: #c0613a; --terra2: #e07a52; --green: #4a7c59;
+      --paper: #faf7f0; --guide: rgba(180,160,120,0.35);
+      --border: rgba(26,35,64,0.15); --radius: 10px;
+      --shadow: 0 2px 12px rgba(26,35,64,0.10);
+    }
+    html { font-size: 16px; }
+    body {
+      background-color: var(--bg);
+      background-image: radial-gradient(circle, rgba(26,35,64,0.08) 1px, transparent 1px);
+      background-size: 20px 20px;
+      color: var(--navy); font-family: 'Inter', sans-serif;
+      min-height: 100vh; padding: 0 0 60px 0;
+    }
+    header {
+      background: var(--navy); color: #fff; padding: 16px 24px;
+      display: flex; align-items: center; justify-content: space-between;
+      flex-wrap: wrap; gap: 10px; position: sticky; top: 0; z-index: 100;
+      box-shadow: 0 2px 16px rgba(26,35,64,0.3);
+    }
+    header h1 { font-family: 'Fraunces', serif; font-size: 1.4rem; font-weight: 700; letter-spacing: -0.02em; }
+    header h1 span { color: #e07a52; }
+    .header-buttons { display: flex; gap: 8px; flex-wrap: wrap; }
+    .btn {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 7px 14px; border-radius: 7px; font-family: 'Inter', sans-serif;
+      font-size: 0.82rem; font-weight: 500; cursor: pointer;
+      border: 1.5px solid transparent; transition: all 0.15s;
+      text-decoration: none; white-space: nowrap;
+    }
+    .btn-ghost { background: rgba(255,255,255,0.12); color: #fff; border-color: rgba(255,255,255,0.25); }
+    .btn-ghost:hover { background: rgba(255,255,255,0.22); }
+    .btn-outline { background: transparent; color: var(--navy); border-color: var(--border); }
+    .btn-outline:hover { background: var(--bg2); }
+    .btn-green { background: var(--green); color: #fff; border-color: var(--green); font-size: 0.9rem; padding: 10px 20px; }
+    .btn-green:hover { background: #3d6b4a; }
+    .btn-download { background: var(--terra); color: #fff; border-color: var(--terra); font-size: 0.95rem; padding: 12px 28px; border-radius: 9px; }
+    .btn-download:hover { background: var(--terra2); }
+    .btn-sm { padding: 5px 10px; font-size: 0.78rem; }
+    main { max-width: 860px; margin: 0 auto; padding: 24px 16px; display: flex; flex-direction: column; gap: 20px; }
+    .card { background: var(--paper); border-radius: var(--radius); border: 1px solid var(--border); box-shadow: var(--shadow); overflow: hidden; }
+    .card-header { padding: 14px 18px 10px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; }
+    .card-title { font-family: 'Fraunces', serif; font-size: 1rem; font-weight: 700; color: var(--navy); }
+    .card-body { padding: 16px 18px; }
+    .progress-row { display: flex; align-items: center; gap: 12px; }
+    .progress-label { font-size: 0.85rem; font-weight: 600; color: var(--navy2); white-space: nowrap; min-width: 80px; }
+    .progress-bar-wrap { flex: 1; height: 8px; background: var(--bg2); border-radius: 99px; overflow: hidden; border: 1px solid var(--border); }
+    .progress-bar { height: 100%; background: linear-gradient(90deg, var(--terra), var(--terra2)); border-radius: 99px; transition: width 0.4s ease; }
+    .progress-pct { font-size: 0.78rem; color: var(--terra); font-weight: 600; min-width: 36px; text-align: right; }
+    /* Language picker */
+    .lang-grid { display: flex; flex-wrap: wrap; gap: 6px; }
+    .lang-chip {
+      padding: 5px 11px; border-radius: 99px; border: 1.5px solid var(--border);
+      background: var(--bg); color: var(--navy2); font-family: 'Inter', sans-serif;
+      font-size: 0.78rem; font-weight: 500; cursor: pointer; transition: all 0.12s;
+    }
+    .lang-chip:hover { border-color: var(--navy2); background: var(--bg2); }
+    .lang-chip.active { background: var(--navy); border-color: var(--navy); color: #fff; }
+    .lang-chip.always, .lang-chip.always:hover { cursor: default; background: var(--navy); border-color: var(--navy); color: #fff; }
+    .lang-note { font-size: 0.75rem; color: rgba(26,35,64,0.45); line-height: 1.45; margin-top: 10px; }
+    .char-grid { display: flex; flex-wrap: wrap; gap: 6px; padding: 14px 16px; max-height: 240px; overflow-y: auto; }
+    .char-cell {
+      width: 44px; height: 44px; border-radius: 7px; border: 1.5px solid var(--border);
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      cursor: pointer; background: var(--bg); transition: all 0.13s; position: relative;
+      font-size: 1.1rem; color: var(--navy); font-weight: 500;
+    }
+    .char-cell:hover { border-color: var(--navy2); background: var(--bg2); transform: scale(1.06); }
+    .char-cell.selected { border-color: var(--navy); background: var(--navy); color: #fff; box-shadow: 0 2px 8px rgba(26,35,64,0.3); }
+    .char-cell.drawn { border-color: var(--terra); background: rgba(192,97,58,0.08); }
+    .char-cell.drawn .cell-dot { display: block; }
+    .char-cell.selected.drawn { background: var(--terra); border-color: var(--terra); color: #fff; }
+    .cell-dot { display: none; position: absolute; top: 4px; right: 4px; width: 7px; height: 7px; background: var(--terra); border-radius: 50%; }
+    .char-cell.selected .cell-dot, .char-cell.selected.drawn .cell-dot { background: rgba(255,255,255,0.8); }
+    .draw-header { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .draw-char-label { font-family: 'Fraunces', serif; font-size: 1.6rem; font-weight: 700; color: var(--terra); min-width: 40px; text-align: center; }
+    .draw-char-name { font-size: 0.85rem; color: var(--navy2); flex: 1; }
+    .canvas-wrap {
+      position: relative; width: 100%; height: 300px; border-radius: 8px; overflow: hidden;
+      border: 1.5px solid var(--border); touch-action: none;
+      box-shadow: inset 0 1px 4px rgba(26,35,64,0.06);
+      background-color: #fdfaf4;
+      background-image: radial-gradient(circle, rgba(180,160,120,0.15) 1px, transparent 1px);
+      background-size: 18px 18px;
+    }
+    canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
+    .guide-line { position: absolute; left: 0; right: 0; height: 1px; background: var(--guide); pointer-events: none; }
+    .guide-label { position: absolute; right: 8px; font-size: 0.65rem; color: rgba(180,160,120,0.7); pointer-events: none; font-family: 'Inter', sans-serif; }
+    /* Tool selector */
+    .tool-row {
+      display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+    }
+    .tool-row-label { font-size: 0.82rem; color: var(--navy2); white-space: nowrap; }
+    .tool-btn {
+      display: flex; align-items: center; gap: 5px;
+      padding: 6px 12px; border-radius: 7px; border: 1.5px solid var(--border);
+      background: var(--bg); cursor: pointer; font-size: 0.82rem; font-weight: 500;
+      color: var(--navy); transition: all 0.13s; font-family: 'Inter', sans-serif;
+    }
+    .tool-btn:hover { background: var(--bg2); border-color: var(--navy2); }
+    .tool-btn.active { background: var(--navy); color: #fff; border-color: var(--navy); }
+    .tool-btn .tool-preview {
+      display: inline-block; width: 28px; height: 10px;
+      border-radius: 99px; background: currentColor; opacity: 0.7;
+      vertical-align: middle;
+    }
+    .tool-btn[data-tool="pen"] .tool-preview {
+      height: 2px; width: 28px; border-radius: 99px;
+      clip-path: polygon(10% 50%, 50% 0%, 90% 50%, 50% 100%);
+      background: currentColor;
+    }
+    .tool-btn[data-tool="marker"] .tool-preview { height: 10px; border-radius: 3px; width: 28px; }
+    .tool-btn[data-tool="brush"] .tool-preview {
+      height: 5px; width: 28px;
+      clip-path: polygon(0% 50%, 15% 0%, 85% 30%, 100% 50%, 85% 70%, 15% 100%);
+    }
+    .tool-btn[data-tool="calligraphy"] .tool-preview {
+      height: 10px; width: 16px;
+      clip-path: polygon(0% 100%, 100% 0%, 100% 30%, 0% 70%);
+    }
+    .draw-controls { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 8px; }
+    .var-selector { display: flex; align-items: center; gap: 6px; font-size: 0.82rem; color: var(--navy2); }
+    .var-btn { width: 30px; height: 30px; border-radius: 6px; border: 1.5px solid var(--border); background: var(--bg); cursor: pointer; font-size: 0.82rem; font-weight: 600; color: var(--navy); display: flex; align-items: center; justify-content: center; transition: all 0.12s; }
+    .var-btn:hover { background: var(--bg2); }
+    .var-btn.active { background: var(--navy); color: #fff; border-color: var(--navy); }
+    .var-slot-row { display: flex; gap: 6px; margin-top: 8px; align-items: center; flex-wrap: wrap; }
+    .var-slot-hint { font-size: 0.72rem; color: rgba(26,35,64,0.45); }
+    .var-slot { padding: 3px 9px; border-radius: 5px; border: 1.5px solid var(--border); font-size: 0.75rem; font-weight: 500; cursor: pointer; background: var(--bg); color: var(--navy2); transition: all 0.12s; }
+    .var-slot:hover { background: var(--bg2); }
+    .var-slot.filled { border-color: var(--terra); color: var(--terra); background: rgba(192,97,58,0.06); }
+    .var-slot.current { background: var(--navy); color: #fff; border-color: var(--navy); }
+    .preview-input { width: 100%; padding: 10px 12px; border-radius: 8px; border: 1.5px solid var(--border); background: var(--bg); font-size: 0.95rem; color: var(--navy); font-family: 'Inter', sans-serif; resize: vertical; min-height: 52px; outline: none; transition: border-color 0.15s; }
+    .preview-input:focus { border-color: var(--navy); }
+    .preview-render { margin-top: 12px; min-height: 70px; padding: 16px 14px; background: var(--bg); border-radius: 8px; border: 1.5px solid var(--border); font-size: 2rem; line-height: 1.4; word-break: break-all; white-space: pre-wrap; font-family: 'MyHandwriting', serif; color: var(--navy); position: relative; }
+    .liga-add-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    .liga-input { width: 110px; padding: 8px 10px; border-radius: 8px; border: 1.5px solid var(--border); background: var(--bg); font-size: 0.95rem; color: var(--navy); font-family: 'Inter', sans-serif; letter-spacing: 0.04em; outline: none; transition: border-color 0.15s; }
+    .liga-input:focus { border-color: var(--navy); }
+    .suggest-row { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+    .suggest-label { font-size: 0.78rem; color: var(--navy2); }
+    .suggest-chip { padding: 3px 9px; border-radius: 99px; border: 1.5px dashed var(--border); background: transparent; font-size: 0.78rem; font-weight: 500; color: var(--navy2); cursor: pointer; font-family: 'Inter', sans-serif; transition: all 0.12s; }
+    .suggest-chip:hover { border-color: var(--terra); color: var(--terra); }
+    .liga-list { display: flex; gap: 6px; flex-wrap: wrap; }
+    .liga-chip { display: inline-flex; align-items: center; gap: 7px; padding: 5px 8px 5px 10px; border-radius: 7px; border: 1.5px solid var(--border); background: var(--bg); font-size: 0.85rem; color: var(--navy); cursor: pointer; transition: all 0.12s; }
+    .liga-chip:hover { border-color: var(--navy2); background: var(--bg2); }
+    .liga-chip.drawn { border-color: var(--terra); background: rgba(192,97,58,0.08); color: var(--terra); }
+    .liga-chip.active { background: var(--navy); border-color: var(--navy); color: #fff; }
+    .liga-chip .liga-seq { font-weight: 600; letter-spacing: 0.04em; }
+    .liga-chip .liga-del { opacity: 0.5; font-size: 0.9rem; line-height: 1; }
+    .liga-chip .liga-del:hover { opacity: 1; }
+    .liga-empty { font-size: 0.8rem; color: rgba(26,35,64,0.45); }
+    .preview-placeholder { font-family: 'Fraunces', serif; font-style: italic; color: rgba(26,35,64,0.3); font-size: 0.9rem; position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); white-space: nowrap; }
+    .export-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+    .export-info { font-size: 0.82rem; color: var(--navy2); }
+    .spacing-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+    .spacing-label { display: flex; align-items: baseline; gap: 8px; font-size: 0.85rem; font-weight: 600; color: var(--navy2); white-space: nowrap; }
+    .spacing-value { font-variant-numeric: tabular-nums; font-size: 0.85rem; font-weight: 600; color: var(--terra); min-width: 40px; }
+    .spacing-range { flex: 1; min-width: 140px; accent-color: var(--terra); cursor: pointer; height: 22px; }
+    .spacing-hint { font-size: 0.75rem; color: rgba(26,35,64,0.45); line-height: 1.45; margin-top: -4px; }
+    .format-toggle { display: inline-flex; border: 1.5px solid var(--border); border-radius: 8px; overflow: hidden; background: var(--bg); }
+    .format-btn { border: none; background: transparent; cursor: pointer; font-family: 'Inter', sans-serif; font-size: 0.8rem; font-weight: 600; color: var(--navy2); padding: 9px 14px; transition: all 0.12s; }
+    .format-btn:hover { background: var(--bg2); }
+    .format-btn.active { background: var(--navy); color: #fff; }
+    .export-note { font-size: 0.75rem; color: rgba(26,35,64,0.45); line-height: 1.45; }
+    .notify { padding: 10px 14px; border-radius: 7px; font-size: 0.84rem; font-weight: 500; display: none; }
+    .notify.error { background: #fdecea; color: #b71c1c; border: 1px solid #f5c6c6; display: block; }
+    .notify.success { background: #e8f5e9; color: #2e7d32; border: 1px solid #c8e6c9; display: block; }
+    .notify.info { background: #e8eaf6; color: #283593; border: 1px solid #c5cae9; display: block; }
+    #importInput { display: none; }
+    footer { text-align: center; color: rgba(26,35,64,0.35); font-size: 0.75rem; margin-top: 32px; }
+    @media (max-width: 600px) {
+      .char-cell { width: 38px; height: 38px; font-size: 0.95rem; }
+      .draw-char-label { font-size: 1.3rem; }
+      .preview-render { font-size: 1.5rem; }
+      .tool-btn { padding: 5px 8px; font-size: 0.75rem; }
+    }
+    /* ── Phones: keep the alphabet pinned to the bottom of the screen ── */
+    @media (max-width: 700px) {
+      body { padding-bottom: calc(112px + env(safe-area-inset-bottom, 0px)); }
+      header { position: static; padding: 10px 12px; gap: 6px; }
+      header h1 { font-size: 1.05rem; }
+      .header-buttons { gap: 6px; }
+      .header-buttons .btn { padding: 5px 9px; font-size: 0.74rem; }
+      main { padding: 12px 10px 0; gap: 12px; }
+      .card-body { padding: 12px 12px; }
+      .card-header { padding: 10px 12px 8px; }
+      .canvas-wrap { height: min(42vh, 300px); }
+      .draw-controls { gap: 8px; }
+      #gridCard {
+        position: fixed; left: 0; right: 0; bottom: 0; z-index: 90;
+        border-radius: 0; border-left: none; border-right: none; border-bottom: none;
+        box-shadow: 0 -3px 16px rgba(26,35,64,0.22);
+        padding-bottom: env(safe-area-inset-bottom, 0px);
+      }
+      #gridCard .card-header { padding: 7px 12px 3px; border-bottom: none; }
+      #gridCard .card-title { font-size: 0.8rem; }
+      #gridCard .grid-hint { display: none; }
+      #gridCard .char-grid {
+        flex-wrap: nowrap; overflow-x: auto; overflow-y: hidden;
+        max-height: none; padding: 4px 12px 10px; gap: 6px;
+        scroll-behavior: smooth; -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+      }
+      #gridCard .char-grid::-webkit-scrollbar { display: none; }
+      #gridCard .char-cell { flex: 0 0 40px; width: 40px; height: 40px; }
+      #gridCard .char-cell:hover { transform: none; }
+      footer { margin-top: 20px; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>✍ My<span>Handwriting</span> Builder</h1>
+  <div class="header-buttons">
+    <label class="btn btn-ghost" title="Import an existing .otf or .ttf font">
+      📂 Import font
+      <input type="file" id="importInput" accept=".otf,.ttf">
+    </label>
+    <button class="btn btn-ghost" id="newProjectBtn">🗑 New project</button>
+    <button class="btn btn-ghost" id="installBtn" style="display:none" title="Install this app on your phone">📲 Install</button>
+  </div>
+</header>
+
+<main>
+
+  <div class="card">
+    <div class="card-body">
+      <div class="progress-row">
+        <div class="progress-label" id="progressLabel">0 / 151 drawn</div>
+        <div class="progress-bar-wrap"><div class="progress-bar" id="progressBar" style="width:0%"></div></div>
+        <div class="progress-pct" id="progressPct">0%</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">Language</div>
+      <div id="langSummary" style="font-size:0.78rem;color:var(--navy2)">English · 86 characters</div>
+    </div>
+    <div class="card-body">
+      <div class="lang-grid" id="langGrid"></div>
+      <div class="lang-note">
+        The a–z alphabet, numbers, punctuation and card suits are always in the grid.
+        Pick only the languages you need and their extra letters appear — anything you have already drawn stays visible.
+      </div>
+    </div>
+  </div>
+
+  <div class="card" id="gridCard">
+    <div class="card-header">
+      <div class="card-title">Character Grid</div>
+      <div class="grid-hint" style="font-size:0.78rem;color:var(--navy2)">Click a character to draw it</div>
+    </div>
+    <div class="char-grid" id="charGrid"></div>
+  </div>
+
+  <div class="card">
+    <div class="card-header">
+      <div class="draw-header">
+        <div class="draw-char-label" id="drawCharLabel">—</div>
+        <div class="draw-char-name" id="drawCharName">Select a character above</div>
+      </div>
+      <div style="display:flex;gap:6px;align-items:center">
+        <button class="btn btn-outline btn-sm" id="undoBtn">↩ Undo</button>
+        <button class="btn btn-outline btn-sm" id="clearBtn">✕ Clear</button>
+      </div>
+    </div>
+    <div class="card-body" style="display:flex;flex-direction:column;gap:12px;">
+      <div id="notify" class="notify"></div>
+
+      <!-- Tool selector -->
+      <div class="tool-row">
+        <span class="tool-row-label">Tool:</span>
+        <button class="tool-btn active" data-tool="pen" title="Tapered pen — natural handwriting feel">
+          ✒ Pen
+        </button>
+        <button class="tool-btn" data-tool="marker" title="Flat chisel marker — thick uniform strokes like a Sharpie">
+          🖍 Marker
+        </button>
+        <button class="tool-btn" data-tool="brush" title="Brush — thick when slow, thin when fast">
+          🎨 Brush
+        </button>
+        <button class="tool-btn" data-tool="calligraphy" title="Calligraphy nib — width depends on stroke angle">
+          ✏ Calligraphy
+        </button>
+      </div>
+
+      <div class="canvas-wrap" id="canvasWrap">
+        <div class="guide-line" style="top:20%"></div>
+        <div class="guide-label" style="top:calc(20% + 2px)">cap height</div>
+        <div class="guide-line" style="top:80%"></div>
+        <div class="guide-label" style="top:calc(80% + 2px)">baseline</div>
+        <canvas id="drawCanvas"></canvas>
+      </div>
+      <div class="draw-controls">
+        <div class="var-selector" id="varSelector" title="How many different forms of this character to draw. 1 = the font uses a single form; 2–3 = the extra forms are swapped in while writing so text looks hand-written.">
+          <span>Variations:</span>
+          <button class="var-btn active" data-v="1">1</button>
+          <button class="var-btn" data-v="2">2</button>
+          <button class="var-btn" data-v="3">3</button>
+        </div>
+        <div style="flex:1"></div>
+        <button class="btn btn-green" id="saveNextBtn">Save &amp; Next ▶</button>
+      </div>
+      <div class="var-slot-row" id="varSlotRow" style="display:none" title="The slots that hold those forms. Var 1 is the base glyph (used on its own); Var 2 and Var 3 are the alternates the font swaps in.">
+        <span style="font-size:0.78rem;color:var(--navy2)">Slot:</span>
+        <span class="var-slot-hint">one slot = one form of this letter</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">Ligatures</div>
+      <div style="font-size:0.78rem;color:var(--navy2)" id="ligaCount">None yet</div>
+    </div>
+    <div class="card-body" style="display:flex;flex-direction:column;gap:10px;">
+      <div class="liga-add-row">
+        <input class="liga-input" id="ligaInput" maxlength="4" placeholder="e.g. th" autocomplete="off" spellcheck="false">
+        <button class="btn btn-green btn-sm" id="addLigaBtn" style="padding:8px 14px;font-size:0.82rem">+ Add ligature</button>
+      </div>
+      <div class="suggest-row" id="ligaSuggest"></div>
+      <div class="liga-list" id="ligaLists"></div>
+      <div class="notify" id="ligaNotify"></div>
+      <div style="font-size:0.75rem;color:rgba(26,35,64,0.45);line-height:1.45">
+        Draw the letters joined as one unit on the canvas above. In the exported font each sequence becomes an OpenType
+        <code>liga</code> ligature, and the extra variations become <code>calt</code> alternates that vary letter by letter, and a letter you drew only once gets two gently re-tilted forms, so repeats never match.
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">Live Preview</div>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <div style="font-size:0.78rem;color:var(--navy2)">Randomised variants + ligatures</div>
+        <button class="btn btn-outline btn-sm" id="shuffleBtn" title="Re-randomise the character variants">🎲 Shuffle</button>
+      </div>
+    </div>
+    <div class="card-body" style="display:flex;flex-direction:column;gap:10px;">
+      <textarea class="preview-input" id="previewInput" rows="2" placeholder="Type something to preview…">hello world 123</textarea>
+      <div class="preview-render" id="previewRender">
+        <span class="preview-placeholder" id="previewPlaceholder">Draw some characters first…</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header"><div class="card-title">Export Font</div></div>
+    <div class="card-body" style="display:flex;flex-direction:column;gap:14px;">
+      <div class="spacing-row">
+        <label class="spacing-label" for="trackingRange">
+          Letter spacing
+          <span class="spacing-value" id="trackingValue">0</span>
+        </label>
+        <input type="range" class="spacing-range" id="trackingRange" min="-150" max="300" step="5" value="0"
+               aria-label="Letter spacing" title="How much space sits between letters">
+        <button class="btn btn-outline btn-sm" id="trackingReset" title="Back to the default spacing">Reset</button>
+      </div>
+      <div class="spacing-hint" id="trackingHint">
+        Slide left to pull letters together, right to spread them apart — the preview above follows along.
+        Small negative values usually look best for joined-up handwriting.
+      </div>
+      <div class="export-row">
+        <div class="format-toggle" id="formatToggle" role="group" aria-label="Font format">
+          <button class="format-btn active" data-format="otf" title="OpenType — best for design apps and macOS">OTF</button>
+          <button class="format-btn" data-format="ttf" title="TrueType — what most Windows and desktop apps ask for">TTF</button>
+        </div>
+        <button class="btn btn-download" id="downloadBtn">⬇ Download MyHandwriting.otf</button>
+        <div class="export-info" id="exportInfo"></div>
+      </div>
+      <div class="export-note">
+        Both files contain your letter variations and ligatures. Pick the format your app asks for — schools, Word and
+        older desktop software usually want TTF; design tools and web fonts prefer OTF.
+        Repeats are broken up by contextual alternates (<code>calt</code>), which nearly every app applies; an app that ignores them shows the base forms only.
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<footer>MyHandwriting Builder · All processing in your browser · No data uploaded</footer>
+
+<script>
+(function () {
+  'use strict';
+
+  const LETTERS = [
+    ...'abcdefghijklmnopqrstuvwxyz',
+    ...'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
+  ];
+  // Numbers, punctuation and card suits: in every project, whatever the language.
+  const COMMON = [
+    ...'0123456789',
+    ...'@$%#\\/+=!?.,;:\'\"-()_',
+    ...'♥♦♣♠'
+  ];
+
+  /* ─── Languages ───
+   * A language only contributes the letters it needs on top of a–z; those letters
+   * all live in the master accent set, so a language can never ask for a character
+   * the app cannot draw. */
+  const LANGUAGES = {
+    en: { label: 'English',         extra: '' },
+    fr: { label: 'French',          extra: 'àâæçéèêëîïôœùûüÿÀÂÆÇÉÈÊËÎÏÔŒÙÛÜŸ' },
+    de: { label: 'German',          extra: 'äöüßÄÖÜ' },
+    es: { label: 'Spanish',         extra: 'áéíñóúüÁÉÍÑÓÚÜ' },
+    pt: { label: 'Portuguese',      extra: 'áàâãçéêíóôõúüÁÀÂÃÇÉÊÍÓÔÕÚÜ' },
+    it: { label: 'Italian',         extra: 'àèéìòùÀÈÉÌÒÙ' },
+    nl: { label: 'Dutch',           extra: 'éèëïóöüÉÈËÏÓÖÜ' },
+    da: { label: 'Danish',          extra: 'æøåéÆØÅÉ' },
+    no: { label: 'Norwegian',       extra: 'æøåéÆØÅÉ' },
+    sv: { label: 'Swedish',         extra: 'åäöéÅÄÖÉ' },
+    fi: { label: 'Finnish',         extra: 'äöÄÖ' },
+    is: { label: 'Icelandic',       extra: 'áðéíóúýþæöÁÐÉÍÓÚÝÞÆÖ' },
+    ca: { label: 'Catalan',         extra: 'àçèéíïòóúüÀÇÈÉÍÏÒÓÚÜ' },
+    eu: { label: 'Basque',          extra: 'ñáéíóúüÑÁÉÍÓÚÜ' },
+    gl: { label: 'Galician',        extra: 'ñáéíóúüÑÁÉÍÓÚÜ' },
+    sq: { label: 'Albanian',        extra: 'çëÇË' },
+    ga: { label: 'Irish',           extra: 'áéíóúÁÉÍÓÚ' },
+    gd: { label: 'Scottish Gaelic', extra: 'àèìòùÀÈÌÒÙ' },
+    tl: { label: 'Filipino',        extra: 'ñáéíóúÑÁÉÍÓÚ' }
+  };
+
+  // Every accented letter the app can draw, in one stable order.
+  const ALL_EXTRAS = [];
+  for (const key in LANGUAGES) {
+    for (const c of LANGUAGES[key].extra) if (ALL_EXTRAS.indexOf(c) === -1) ALL_EXTRAS.push(c);
+  }
+
+  // The master list: one entry per drawable character. Export, preview, import and
+  // ligature checks all walk this, so the language choice only changes which cells
+  // the grid shows — it never removes a glyph from the font.
+  const CHARS = [...LETTERS, ...ALL_EXTRAS, ...COMMON];
+
+  const CHAR_NAMES = {
+    '!':'exclaim','"':'quote','#':'hash','$':'dollar','%':'percent',
+    "'":"apostrophe",'(':'paren-left',')':'paren-right','+':'plus',
+    ',':'comma','-':'hyphen','.':'period','/':'slash',':':'colon',
+    ';':'semicolon','=':'equal','?':'question','@':'at','\\':'backslash',
+    '_':'underscore','♥':'heart','♦':'diamond','♣':'club','♠':'spade',
+    'é':'e-acute','à':'a-grave','è':'e-grave','ù':'u-grave',
+    'â':'a-circ','ê':'e-circ','î':'i-circ','ô':'o-circ','û':'u-circ',
+    'ë':'e-uml','ï':'i-uml','ü':'u-uml','ç':'c-cedilla',
+    'æ':'ae-ligature','Æ':'AE-ligature','œ':'oe-ligature','Œ':'OE-ligature',
+    'ø':'o-slash','Ø':'O-slash','ß':'sharp-s','ð':'eth','Ð':'eth-cap',
+    'þ':'thorn','Þ':'thorn-cap'
+  };
+
+  // Accents that decompose in Unicode → the word used in names like "e-acute".
+  const ACCENT_NAMES = {
+    '\u0300': 'grave', '\u0301': 'acute', '\u0302': 'circ', '\u0303': 'tilde',
+    '\u0308': 'uml', '\u030A': 'ring', '\u030C': 'caron', '\u0327': 'cedilla'
+  };
+
+  function charName(c) {
+    if (CHAR_NAMES[c]) return CHAR_NAMES[c];
+    if (c >= 'a' && c <= 'z') return 'lowercase-' + c;
+    if (c >= 'A' && c <= 'Z') return 'uppercase-' + c;
+    if (c >= '0' && c <= '9') return 'digit-' + c;
+    // Any other accented letter: read the base letter and the accent off
+    // Unicode, so newly added characters need no lookup entry of their own.
+    const parts = c.normalize('NFD');
+    const base = parts[0];
+    const accent = ACCENT_NAMES[parts.slice(1)];
+    if (base && accent) {
+      const upper = base !== base.toLowerCase();
+      return (upper ? 'cap-' : '') + base.toLowerCase() + '-' + accent;
+    }
+    return 'char-' + c.codePointAt(0);
+  }
+
+  /* ─── State ─── */
+  let glyphData = {};   // [char][varSlot] = [[{x,y},...], ...]
+  let toolData  = {};   // [char][varSlot] = 'pen' | 'marker' | 'brush' | 'calligraphy'
+  let ligatures = [];   // [{ seq:'th', strokes:[[{x,y},...]], tool:'pen' }]
+  let activeTool = 'pen';
+  let selectedChar = CHARS[0];
+  let selectedLiga = null;
+  let currentVariations = 1;
+  let currentVarSlot = 0;
+  let isDrawing = false;
+  let currentStroke = [];
+  let currentStrokes = [];
+  let tracking = 0;         // global letter spacing, in font units (1000 = one em)
+  let exportFormat = 'otf'; // 'otf' | 'ttf'
+  let activeLangs = ['en']; // languages whose extra letters the grid shows
+
+  // Private-use codepoints so the preview can address alternates directly.
+  const PUA_VAR  = 0xE000;  // variant v of CHARS[i] → PUA_VAR + i * 8 + v
+  const PUA_LIGA = 0xEA00;  // ligature i           → PUA_LIGA + i
+
+  /* ─── Canvas ─── */
+  const canvasWrap = document.getElementById('canvasWrap');
+  const canvas = document.getElementById('drawCanvas');
+  const ctx = canvas.getContext('2d');
+  let dpr = 1, displayW = 0, displayH = 0;
+
+  function resizeCanvas() {
+    dpr = window.devicePixelRatio || 1;
+    const rect = canvasWrap.getBoundingClientRect();
+    displayW = rect.width; displayH = rect.height;
+    canvas.width = displayW * dpr; canvas.height = displayH * dpr;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    redrawCanvas();
+  }
+
+  /* ── tool-aware canvas rendering ── */
+  function applyToolStyle(ctx, tool, alpha) {
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    if (tool === 'marker') {
+      ctx.lineWidth = 14;
+      ctx.globalAlpha = (alpha || 1) * 0.82;
+      ctx.strokeStyle = 'rgba(26,35,64,1)';
+    } else if (tool === 'brush') {
+      ctx.lineWidth = 3; // varies per segment below
+      ctx.globalAlpha = alpha || 1;
+      ctx.strokeStyle = 'rgba(26,35,64,0.9)';
+    } else if (tool === 'calligraphy') {
+      ctx.lineWidth = 2;
+      ctx.globalAlpha = alpha || 1;
+      ctx.strokeStyle = 'rgba(26,35,64,0.9)';
+    } else {
+      // pen
+      ctx.lineWidth = 2.5;
+      ctx.globalAlpha = alpha || 1;
+      ctx.strokeStyle = 'rgba(26,35,64,0.85)';
+    }
+  }
+
+  function drawStrokeOnCanvas(ctx, stroke, tool, alpha) {
+    if (!stroke || stroke.length < 2) return;
+    ctx.save();
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.globalAlpha = alpha || 1;
+
+    if (tool === 'marker') {
+      ctx.strokeStyle = 'rgba(26,35,64,0.9)';
+      ctx.lineWidth = 14;
+      ctx.beginPath();
+      ctx.moveTo(stroke[0].x, stroke[0].y);
+      for (let i = 1; i < stroke.length; i++) ctx.lineTo(stroke[i].x, stroke[i].y);
+      ctx.stroke();
+
+    } else if (tool === 'brush') {
+      // Variable width — fast = thin, slow = thick
+      for (let i = 1; i < stroke.length; i++) {
+        const dx = stroke[i].x - stroke[i-1].x;
+        const dy = stroke[i].y - stroke[i-1].y;
+        const speed = Math.sqrt(dx*dx + dy*dy) || 0.1;
+        const w = Math.max(1, Math.min(18, 22 / (speed * 0.18 + 1)));
+        ctx.beginPath();
+        ctx.lineWidth = w;
+        ctx.strokeStyle = 'rgba(26,35,64,0.88)';
+        ctx.moveTo(stroke[i-1].x, stroke[i-1].y);
+        ctx.lineTo(stroke[i].x, stroke[i].y);
+        ctx.stroke();
+      }
+
+    } else if (tool === 'calligraphy') {
+      // Width depends on stroke angle vs. fixed 45° nib
+      for (let i = 1; i < stroke.length; i++) {
+        const dx = stroke[i].x - stroke[i-1].x;
+        const dy = stroke[i].y - stroke[i-1].y;
+        const angle = Math.atan2(dy, dx);
+        const nibAngle = Math.PI / 4;
+        const w = Math.max(1.5, 16 * Math.abs(Math.sin(angle - nibAngle)));
+        ctx.beginPath();
+        ctx.lineWidth = w;
+        ctx.strokeStyle = 'rgba(26,35,64,0.88)';
+        ctx.moveTo(stroke[i-1].x, stroke[i-1].y);
+        ctx.lineTo(stroke[i].x, stroke[i].y);
+        ctx.stroke();
+      }
+
+    } else {
+      // Pen
+      ctx.strokeStyle = 'rgba(26,35,64,0.85)';
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.moveTo(stroke[0].x, stroke[0].y);
+      for (let i = 1; i < stroke.length; i++) ctx.lineTo(stroke[i].x, stroke[i].y);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  function redrawCanvas() {
+    ctx.clearRect(0, 0, displayW, displayH);
+    ctx.globalAlpha = 1;
+
+    // Ghost template character (or ligature sequence)
+    const ghost = selectedLiga ? selectedLiga.seq : selectedChar;
+    if (ghost && ghost.trim()) {
+      ctx.save();
+      let fontSize = displayH * 0.62;
+      const fontStack = 'bold ' + fontSize + 'px Georgia, "Times New Roman", serif';
+      ctx.font = fontStack;
+      const ghostW = ctx.measureText(ghost).width;
+      if (ghostW > displayW * 0.78) {
+        fontSize *= (displayW * 0.78) / ghostW;
+        ctx.font = 'bold ' + fontSize + 'px Georgia, "Times New Roman", serif';
+      }
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'alphabetic';
+      ctx.fillStyle = 'rgba(26,35,64,0.07)';
+      ctx.fillText(ghost, displayW / 2, displayH * 0.80);
+      ctx.restore();
+    }
+
+    // Saved strokes (already committed for this target/slot)
+    const saved = getTargetStrokes();
+    const savedTool = getTargetTool();
+    if (saved && saved.length) {
+      for (const s of saved) drawStrokeOnCanvas(ctx, s, savedTool, 0.38);
+    }
+
+    // In-session strokes (drawn since last commit)
+    for (const s of currentStrokes) drawStrokeOnCanvas(ctx, s, activeTool, 0.85);
+
+    // Live stroke (currently being drawn)
+    if (isDrawing && currentStroke.length >= 2) {
+      drawStrokeOnCanvas(ctx, currentStroke, activeTool, 0.9);
+    }
+
+    ctx.globalAlpha = 1;
+  }
+
+  function getStrokesForCurrentSlot() {
+    const s = glyphData[selectedChar];
+    return (s && s[currentVarSlot]) ? s[currentVarSlot] : [];
+  }
+
+  function getToolForCurrentSlot() {
+    const t = toolData[selectedChar];
+    return (t && t[currentVarSlot]) ? t[currentVarSlot] : 'pen';
+  }
+
+  /* The draw target is either a character variation slot or a ligature. */
+  function getTargetStrokes() {
+    if (selectedLiga) return selectedLiga.strokes || [];
+    return getStrokesForCurrentSlot();
+  }
+
+  function getTargetTool() {
+    if (selectedLiga) return selectedLiga.tool || 'pen';
+    return getToolForCurrentSlot();
+  }
+
+  /* ─── Pointer events ─── */
+  function ptFromEvent(e) {
+    const r = canvas.getBoundingClientRect();
+    if (e.touches) { const t = e.touches[0]; return { x: t.clientX - r.left, y: t.clientY - r.top }; }
+    return { x: e.clientX - r.left, y: e.clientY - r.top };
+  }
+
+  canvas.addEventListener('pointerdown', e => { if (!selectedChar) return; e.preventDefault(); isDrawing = true; currentStroke = [ptFromEvent(e)]; redrawCanvas(); });
+  canvas.addEventListener('pointermove', e => { if (!isDrawing) return; e.preventDefault(); currentStroke.push(ptFromEvent(e)); redrawCanvas(); });
+  canvas.addEventListener('pointerup', e => { if (!isDrawing) return; isDrawing = false; if (currentStroke.length >= 2) currentStrokes.push(currentStroke); currentStroke = []; redrawCanvas(); });
+  canvas.addEventListener('pointerleave', e => { if (!isDrawing) return; isDrawing = false; if (currentStroke.length >= 2) currentStrokes.push(currentStroke); currentStroke = []; redrawCanvas(); });
+  canvas.addEventListener('touchstart', e => { if (!selectedChar) return; e.preventDefault(); isDrawing = true; currentStroke = [ptFromEvent(e)]; redrawCanvas(); }, { passive: false });
+  canvas.addEventListener('touchmove', e => { if (!isDrawing) return; e.preventDefault(); currentStroke.push(ptFromEvent(e)); redrawCanvas(); }, { passive: false });
+  canvas.addEventListener('touchend', e => { if (!isDrawing) return; isDrawing = false; if (currentStroke.length >= 2) currentStrokes.push(currentStroke); currentStroke = []; redrawCanvas(); }, { passive: false });
+
+  /* ─── Tool buttons ─── */
+  document.querySelectorAll('.tool-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      activeTool = btn.dataset.tool;
+      document.querySelectorAll('.tool-btn').forEach(b => b.classList.toggle('active', b === btn));
+      // Update cursor hint
+      canvas.style.cursor = activeTool === 'calligraphy' ? 'cell' : activeTool === 'marker' ? 'cell' : 'crosshair';
+    });
+  });
+
+  /* ─── Notifications ─── */
+  function showNotify(msg, type, target) {
+    const el = target || document.getElementById('notify');
+    el.textContent = msg; el.className = 'notify ' + (type || 'info');
+    clearTimeout(el._t); el._t = setTimeout(() => { el.className = 'notify'; }, 3500);
+  }
+
+  /* ─── Language filter ───
+   * The grid holds the alphabet, numbers, symbols and suits, plus the extra letters
+   * of every chosen language. A character that already has a glyph is shown even
+   * when its language is switched off, so nothing drawn ever disappears. */
+  function visibleChars() {
+    const extras = [];
+    for (const key of activeLangs) {
+      const extra = (LANGUAGES[key] || {}).extra || '';
+      for (const c of extra) if (extras.indexOf(c) === -1) extras.push(c);
+    }
+    for (const c of ALL_EXTRAS) {
+      const slots = glyphData[c];
+      if (slots && slots[0] && slots[0].length && extras.indexOf(c) === -1) extras.push(c);
+    }
+    return [...LETTERS, ...extras, ...COMMON];
+  }
+
+  function langLabel(key) {
+    return (LANGUAGES[key] && LANGUAGES[key].label) || key;
+  }
+
+  function updateLangSummary() {
+    const el = document.getElementById('langSummary');
+    if (!el) return;
+    const labels = activeLangs.map(langLabel);
+    const shown = labels.length <= 2 ? labels.join(' + ') : labels.length + ' languages';
+    el.textContent = shown + ' · ' + visibleChars().length + ' characters';
+  }
+
+  function buildLangUI() {
+    const grid = document.getElementById('langGrid');
+    if (!grid) return;
+    grid.innerHTML = '';
+    for (const key in LANGUAGES) {
+      const always = LANGUAGES[key].extra === '';
+      const chip = document.createElement('button');
+      chip.type = 'button';
+      chip.dataset.lang = key;
+      chip.className = 'lang-chip' + (activeLangs.indexOf(key) !== -1 ? ' active' : '') + (always ? ' always' : '');
+      chip.textContent = LANGUAGES[key].label;
+      chip.title = always
+        ? 'Uses the plain a–z alphabet, which is always in the grid.'
+        : 'Add the extra letters ' + LANGUAGES[key].label + ' needs on top of a–z.';
+      chip.addEventListener('click', () => toggleLang(key));
+      grid.appendChild(chip);
+    }
+    updateLangSummary();
+  }
+
+  function refreshLangUI() {
+    for (const chip of document.querySelectorAll('.lang-chip')) {
+      chip.classList.toggle('active', activeLangs.indexOf(chip.dataset.lang) !== -1);
+    }
+    updateLangSummary();
+  }
+
+  function toggleLang(key) {
+    if (!LANGUAGES[key] || LANGUAGES[key].extra === '') return; // a–z is always drawn
+    commitCurrentStrokes();
+    const at = activeLangs.indexOf(key);
+    if (at === -1) activeLangs.push(key); else activeLangs.splice(at, 1);
+    saveToStorage();
+    refreshLangUI();
+    buildGrid();
+    // The selected character may have just left the grid.
+    if (!selectedLiga && visibleChars().indexOf(selectedChar) === -1) selectChar(visibleChars()[0]);
+    updateProgress();
+    redrawCanvas();
+  }
+
+  /* ─── Progress ─── */
+  function updateProgress() {
+    const list = visibleChars();
+    const drawn = list.filter(c => glyphData[c] && glyphData[c][0] && glyphData[c][0].length > 0).length;
+    const total = list.length, pct = total ? Math.round(drawn / total * 100) : 0;
+    document.getElementById('progressLabel').textContent = drawn + ' / ' + total + ' drawn';
+    document.getElementById('progressBar').style.width = pct + '%';
+    document.getElementById('progressPct').textContent = pct + '%';
+  }
+
+  /* ─── Grid ─── */
+  function buildGrid() {
+    const grid = document.getElementById('charGrid');
+    grid.innerHTML = '';
+    for (const c of visibleChars()) {
+      const cell = document.createElement('div');
+      cell.className = 'char-cell'; cell.dataset.char = c; cell.title = charName(c);
+      const lbl = document.createElement('span'); lbl.textContent = c; cell.appendChild(lbl);
+      const dot = document.createElement('div'); dot.className = 'cell-dot'; cell.appendChild(dot);
+      cell.addEventListener('click', () => selectChar(c));
+      grid.appendChild(cell);
+    }
+    refreshGrid();
+  }
+
+  function refreshGrid() {
+    for (const cell of document.querySelectorAll('.char-cell')) {
+      const c = cell.dataset.char;
+      // Note the !!: passing undefined to classList.toggle() flips the class instead of clearing it.
+      const drawn = !!(glyphData[c] && glyphData[c][0] && glyphData[c][0].length > 0);
+      cell.classList.toggle('drawn', drawn);
+      cell.classList.toggle('selected', !selectedLiga && c === selectedChar);
+    }
+    // On phones the grid is a horizontal strip: keep the current letter in view.
+    const grid = document.getElementById('charGrid');
+    const sel = grid.querySelector('.char-cell.selected');
+    if (sel && window.matchMedia('(max-width: 700px)').matches) {
+      const g = grid.getBoundingClientRect(), r = sel.getBoundingClientRect();
+      grid.scrollLeft += (r.left - g.left) - (g.width - r.width) / 2;
+    }
+  }
+
+  function selectChar(c) {
+    commitCurrentStrokes();
+    selectedLiga = null;
+    selectedChar = c; currentVarSlot = 0; currentStrokes = []; currentStroke = []; isDrawing = false;
+    // Restore tool for this slot if previously saved
+    const savedTool = toolData[c] && toolData[c][0];
+    if (savedTool) {
+      activeTool = savedTool;
+      document.querySelectorAll('.tool-btn').forEach(b => b.classList.toggle('active', b.dataset.tool === activeTool));
+    }
+    updateDrawUI(); refreshGrid(); refreshLigas(); redrawCanvas();
+  }
+
+  function updateDrawUI() {
+    const label = document.getElementById('drawCharLabel');
+    const name = document.getElementById('drawCharName');
+    if (selectedLiga) {
+      label.textContent = selectedLiga.seq;
+      name.textContent = 'ligature · draw the letters joined as one unit';
+    } else {
+      label.textContent = selectedChar || '—';
+      name.textContent = selectedChar ? charName(selectedChar) : 'Select a character above';
+    }
+    document.getElementById('varSelector').style.display = selectedLiga ? 'none' : 'flex';
+    updateVarSlots();
+  }
+
+  function updateVarSlots() {
+    const row = document.getElementById('varSlotRow');
+    if (selectedLiga || currentVariations <= 1) { row.style.display = 'none'; return; }
+    row.style.display = 'flex';
+    while (row.children.length > 1) row.removeChild(row.lastChild);
+    for (let i = 0; i < currentVariations; i++) {
+      const btn = document.createElement('button');
+      const has = glyphData[selectedChar] && glyphData[selectedChar][i] && glyphData[selectedChar][i].length > 0;
+      btn.className = 'var-slot' + (has ? ' filled' : '') + (i === currentVarSlot ? ' current' : '');
+      btn.textContent = (has ? '✓ ' : '') + 'Var ' + (i + 1);
+      btn.title = has
+        ? 'Form ' + (i + 1) + ' is drawn with the ' + ((toolData[selectedChar] && toolData[selectedChar][i]) || 'pen') + ' — click to edit it'
+        : 'Form ' + (i + 1) + ' is still empty — click to draw it';
+      btn.addEventListener('click', () => {
+        commitCurrentStrokes();
+        currentVarSlot = i; currentStrokes = [];
+        // restore tool for this slot
+        const t = toolData[selectedChar] && toolData[selectedChar][i];
+        if (t) { activeTool = t; document.querySelectorAll('.tool-btn').forEach(b => b.classList.toggle('active', b.dataset.tool === t)); }
+        updateVarSlots(); redrawCanvas();
+      });
+      row.appendChild(btn);
+    }
+  }
+
+  document.querySelectorAll('.var-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const v = parseInt(btn.dataset.v);
+      commitCurrentStrokes();          // never lose what is already on the canvas
+      currentVariations = v;
+      document.querySelectorAll('.var-btn').forEach(b => b.classList.toggle('active', b === btn));
+      /* Picking a number means "I am about to draw that many forms", so jump to
+         the first form that is still empty (or the last one once they are all
+         drawn). Without this the canvas kept showing the previous form. */
+      let target = 0;
+      for (let i = 0; i < v; i++) {
+        target = i;
+        const has = glyphData[selectedChar] && glyphData[selectedChar][i] && glyphData[selectedChar][i].length > 0;
+        if (!has) break;
+      }
+      currentVarSlot = target; currentStrokes = []; currentStroke = []; isDrawing = false;
+      const slotTool = toolData[selectedChar] && toolData[selectedChar][target];
+      if (slotTool) {
+        activeTool = slotTool;
+        document.querySelectorAll('.tool-btn').forEach(b => b.classList.toggle('active', b.dataset.tool === slotTool));
+      }
+      updateVarSlots(); redrawCanvas();
+    });
+  });
+
+  /* ─── Ligatures ─── */
+  const LIGA_SUGGESTIONS = ['th', 'ch', 'sh', 'll', 'tt', 'ff', 'oo', 'ee', 'ss', 'ck'];
+
+  function addLiga(rawSeq) {
+    const note = document.getElementById('ligaNotify');
+    const clean = (rawSeq || '').replace(/[\s\u00a0]+/g, '');
+    if (clean.length < 2) { showNotify('A ligature needs at least 2 characters.', 'error', note); return; }
+    if (clean.length > 4) { showNotify('Ligatures can be at most 4 characters.', 'error', note); return; }
+    for (const c of clean) {
+      if (CHARS.indexOf(c) === -1) { showNotify('"' + c + '" is not a character you can draw.', 'error', note); return; }
+    }
+    if (ligatures.some(l => l.seq === clean)) { showNotify('"' + clean + '" is already in the list.', 'info', note); return; }
+    ligatures.push({ seq: clean, strokes: [], tool: 'pen' });
+    saveToStorage();
+    selectLiga(ligatures.length - 1);
+    showNotify('Added "' + clean + '" — draw it joined on the canvas.', 'success', note);
+  }
+
+  function refreshLigas() {
+    const list = document.getElementById('ligaLists');
+    const drawnCount = ligatures.filter(l => l.strokes && l.strokes.length).length;
+    document.getElementById('ligaCount').textContent = ligatures.length
+      ? drawnCount + ' / ' + ligatures.length + ' drawn'
+      : 'None yet';
+    list.innerHTML = '';
+    if (!ligatures.length) {
+      const empty = document.createElement('div');
+      empty.className = 'liga-empty';
+      empty.textContent = 'Add a combination above (e.g. "th") and draw it joined — it will then replace those letters automatically.';
+      list.appendChild(empty);
+      return;
+    }
+    ligatures.forEach((lg, i) => {
+      const has = !!(lg.strokes && lg.strokes.length);
+      const chip = document.createElement('div');
+      chip.className = 'liga-chip' + (has ? ' drawn' : '') + (selectedLiga === lg ? ' active' : '');
+      chip.title = has ? 'Drawn — click to edit "' + lg.seq + '"' : 'Click to draw "' + lg.seq + '"';
+      const seq = document.createElement('span');
+      seq.className = 'liga-seq'; seq.textContent = lg.seq;
+      chip.appendChild(seq);
+      const del = document.createElement('span');
+      del.className = 'liga-del'; del.textContent = '×'; del.title = 'Remove ligature';
+      del.addEventListener('click', ev => { ev.stopPropagation(); removeLiga(i); });
+      chip.appendChild(del);
+      chip.addEventListener('click', () => selectLiga(i));
+      list.appendChild(chip);
+    });
+  }
+
+  function selectLiga(i) {
+    commitCurrentStrokes();
+    const lg = ligatures[i];
+    if (!lg) return;
+    selectedLiga = lg;
+    currentVarSlot = 0; currentStrokes = []; currentStroke = []; isDrawing = false;
+    const savedTool = lg.tool || 'pen';
+    activeTool = savedTool;
+    document.querySelectorAll('.tool-btn').forEach(b => b.classList.toggle('active', b.dataset.tool === activeTool));
+    updateDrawUI(); refreshGrid(); refreshLigas(); redrawCanvas();
+  }
+
+  function removeLiga(i) {
+    const lg = ligatures[i];
+    if (!lg) return;
+    if (!confirm('Remove the "' + lg.seq + '" ligature?')) return;
+    const wasSelected = selectedLiga === lg;
+    ligatures.splice(i, 1);
+    if (wasSelected) {
+      selectedLiga = null; currentStrokes = []; currentStroke = []; isDrawing = false;
+      updateDrawUI();
+    }
+    saveToStorage(); refreshLigas(); refreshGrid(); redrawCanvas(); updatePreview();
+  }
+
+  (function initLigaUI() {
+    const suggest = document.getElementById('ligaSuggest');
+    const label = document.createElement('span');
+    label.className = 'suggest-label'; label.textContent = 'Common:';
+    suggest.appendChild(label);
+    for (const seq of LIGA_SUGGESTIONS) {
+      const b = document.createElement('button');
+      b.className = 'suggest-chip'; b.type = 'button'; b.textContent = seq;
+      b.addEventListener('click', () => addLiga(seq));
+      suggest.appendChild(b);
+    }
+    const input = document.getElementById('ligaInput');
+    document.getElementById('addLigaBtn').addEventListener('click', () => {
+      addLiga(input.value);
+      input.value = '';
+      input.focus();
+    });
+    input.addEventListener('keydown', e => {
+      if (e.key === 'Enter') { e.preventDefault(); document.getElementById('addLigaBtn').click(); }
+    });
+  })();
+
+  /* ─── Commit / Clear / Undo ─── */
+  function commitCurrentStrokes() {
+    if (currentStrokes.length === 0) return;
+    if (selectedLiga) {
+      selectedLiga.strokes = (selectedLiga.strokes || []).concat(currentStrokes);
+      selectedLiga.tool = activeTool;
+      currentStrokes = [];
+      saveToStorage(); refreshLigas(); updatePreview();
+      return;
+    }
+    if (!selectedChar) return;
+    if (!glyphData[selectedChar]) glyphData[selectedChar] = [];
+    if (!glyphData[selectedChar][currentVarSlot]) glyphData[selectedChar][currentVarSlot] = [];
+    glyphData[selectedChar][currentVarSlot] = glyphData[selectedChar][currentVarSlot].concat(currentStrokes);
+    // Save tool for this slot
+    if (!toolData[selectedChar]) toolData[selectedChar] = [];
+    toolData[selectedChar][currentVarSlot] = activeTool;
+    currentStrokes = [];
+    saveToStorage();
+    updatePreview();
+  }
+
+  document.getElementById('clearBtn').addEventListener('click', () => {
+    currentStrokes = []; currentStroke = []; isDrawing = false;
+    if (selectedLiga) {
+      selectedLiga.strokes = []; selectedLiga.tool = activeTool;
+    } else {
+      if (glyphData[selectedChar]) glyphData[selectedChar][currentVarSlot] = [];
+      if (toolData[selectedChar]) toolData[selectedChar][currentVarSlot] = activeTool;
+    }
+    saveToStorage(); redrawCanvas(); updateProgress(); refreshGrid(); refreshLigas(); updatePreview();
+  });
+
+  document.getElementById('undoBtn').addEventListener('click', () => {
+    if (currentStrokes.length > 0) { currentStrokes.pop(); }
+    else if (selectedLiga) {
+      if (selectedLiga.strokes && selectedLiga.strokes.length > 0) { selectedLiga.strokes.pop(); saveToStorage(); }
+    }
+    else if (glyphData[selectedChar] && glyphData[selectedChar][currentVarSlot] && glyphData[selectedChar][currentVarSlot].length > 0) {
+      glyphData[selectedChar][currentVarSlot].pop(); saveToStorage();
+    }
+    redrawCanvas(); updateProgress(); refreshGrid(); refreshLigas(); updatePreview();
+  });
+
+  document.getElementById('saveNextBtn').addEventListener('click', () => {
+    if (selectedLiga) {
+      if (currentStrokes.length === 0 && !(selectedLiga.strokes && selectedLiga.strokes.length)) {
+        showNotify('Draw the "' + selectedLiga.seq + '" ligature first!', 'error'); return;
+      }
+      const drawnSeq = selectedLiga.seq;
+      commitCurrentStrokes();
+      updateProgress(); refreshLigas();
+      const nextLiga = ligatures.findIndex(lg => !lg.strokes || !lg.strokes.length);
+      if (nextLiga === -1) { showNotify('✓ All ligatures drawn!', 'success'); selectChar(CHARS[0]); }
+      else { selectLiga(nextLiga); showNotify('Saved ligature "' + drawnSeq + '" — now: "' + ligatures[nextLiga].seq + '"', 'success'); }
+      redrawCanvas();
+      return;
+    }
+    if (!selectedChar) { showNotify('Select a character first.', 'error'); return; }
+    if (currentStrokes.length === 0 && !(glyphData[selectedChar] && glyphData[selectedChar][0] && glyphData[selectedChar][0].length)) {
+      showNotify('Draw something first!', 'error'); return;
+    }
+    if (currentStrokes.length > 0) {
+      commitCurrentStrokes();
+      const next = currentVarSlot + 1;
+      if (next < currentVariations) {
+        currentVarSlot = next; currentStrokes = []; updateVarSlots(); redrawCanvas();
+        showNotify('Saved! Now draw variation ' + (next + 1) + ' of "' + selectedChar + '"', 'success'); return;
+      }
+    }
+    // Walk the characters the grid is currently showing, never a hidden one.
+    const list = visibleChars();
+    const idx = list.indexOf(selectedChar);
+    let nextIdx = -1;
+    for (let i = idx + 1; i < list.length; i++) { if (!glyphData[list[i]] || !glyphData[list[i]][0] || !glyphData[list[i]][0].length) { nextIdx = i; break; } }
+    if (nextIdx === -1) for (let i = 0; i < idx; i++) { if (!glyphData[list[i]] || !glyphData[list[i]][0] || !glyphData[list[i]][0].length) { nextIdx = i; break; } }
+    updateProgress(); refreshGrid(); updatePreview();
+    if (nextIdx === -1) { showNotify('🎉 All characters drawn! Download your font below.', 'success'); }
+    else { const prev = selectedChar; selectChar(list[nextIdx]); showNotify('Saved "' + prev + '" — now: "' + list[nextIdx] + '"', 'success'); }
+    redrawCanvas();
+  });
+
+  /* ─── Storage ─── */
+  function saveToStorage() {
+    try {
+      localStorage.setItem('font_builder_glyphs', JSON.stringify(glyphData));
+      localStorage.setItem('font_builder_tools', JSON.stringify(toolData));
+      localStorage.setItem('font_builder_ligas', JSON.stringify(ligatures));
+      localStorage.setItem('font_builder_settings', JSON.stringify({ tracking, format: exportFormat, langs: activeLangs }));
+    } catch (e) {}
+  }
+
+  function loadFromStorage() {
+    try {
+      const r = localStorage.getItem('font_builder_glyphs'); if (r) glyphData = JSON.parse(r);
+      const t = localStorage.getItem('font_builder_tools'); if (t) toolData = JSON.parse(t);
+      const l = localStorage.getItem('font_builder_ligas'); if (l) { const parsed = JSON.parse(l); if (Array.isArray(parsed)) ligatures = parsed.filter(x => x && typeof x.seq === 'string'); }
+      const st = localStorage.getItem('font_builder_settings');
+      if (st) {
+        const s = JSON.parse(st);
+        if (s && typeof s.tracking === 'number' && isFinite(s.tracking)) tracking = Math.max(-150, Math.min(300, Math.round(s.tracking)));
+        if (s && (s.format === 'ttf' || s.format === 'otf')) exportFormat = s.format;
+        if (s && Array.isArray(s.langs)) {
+          const kept = s.langs.filter(k => LANGUAGES[k]);
+          if (kept.length) activeLangs = kept.indexOf('en') === -1 ? ['en', ...kept] : kept;
+        }
+      }
+    } catch (e) { glyphData = {}; toolData = {}; ligatures = []; }
+  }
+
+  document.getElementById('newProjectBtn').addEventListener('click', () => {
+    if (!confirm('Clear all drawn characters, ligatures and start a new project?')) return;
+    glyphData = {}; toolData = {}; ligatures = []; selectedLiga = null;
+    try {
+      localStorage.removeItem('font_builder_glyphs');
+      localStorage.removeItem('font_builder_tools');
+      localStorage.removeItem('font_builder_ligas');
+    } catch (e) {}
+    selectChar(CHARS[0]); updateProgress(); refreshGrid(); refreshLigas(); updatePreview();
+    showNotify('New project started.', 'info');
+  });
+
+  /* ─── Stroke → Path (tool-aware) ─── */
+  function strokesToPath(strokes, cw, ch, scale, upm, tool) {
+    const path = new opentype.Path();
+    tool = tool || 'pen';
+
+    for (const stroke of strokes) {
+      if (!stroke || stroke.length < 2) continue;
+
+      // Map canvas coords → font units
+      const pts = stroke.map(p => ({
+        x: (p.x / cw) * upm,
+        y: upm - (p.y / ch) * upm - 200
+      }));
+      const n = pts.length;
+      const left = [], right = [];
+
+      for (let i = 0; i < n; i++) {
+        // Tangent vector
+        let tx, ty;
+        if (i === 0) { tx = pts[1].x - pts[0].x; ty = pts[1].y - pts[0].y; }
+        else if (i === n-1) { tx = pts[n-1].x - pts[n-2].x; ty = pts[n-1].y - pts[n-2].y; }
+        else { tx = pts[i+1].x - pts[i-1].x; ty = pts[i+1].y - pts[i-1].y; }
+        const len = Math.sqrt(tx*tx + ty*ty) || 1; tx /= len; ty /= len;
+
+        const t = i / Math.max(n-1, 1); // position 0→1
+
+        let w, px, py;
+
+        if (tool === 'pen') {
+          const sw = 50 / (scale || 1);
+          w = sw * Math.sin(Math.PI * t);
+          px = -ty; py = tx; // perpendicular to stroke
+
+        } else if (tool === 'marker') {
+          // Flat constant width, only very slight end taper
+          const sw = 100 / (scale || 1);
+          const edgeFactor = Math.min(1, t * 12, (1-t) * 12);
+          w = sw * (0.8 + 0.2 * edgeFactor);
+          px = -ty; py = tx;
+
+        } else if (tool === 'brush') {
+          // Speed-based: fast = thin, slow = thick
+          const sw = 80 / (scale || 1);
+          let speed = 0;
+          if (i > 0) {
+            const ddx = pts[i].x - pts[i-1].x, ddy = pts[i].y - pts[i-1].y;
+            speed = Math.sqrt(ddx*ddx + ddy*ddy);
+          }
+          w = Math.max(4/(scale||1), Math.min(sw, sw / (speed * 0.007 + 1)));
+          px = -ty; py = tx;
+
+        } else if (tool === 'calligraphy') {
+          // Width depends on stroke angle vs. fixed 45° nib
+          const nibAngle = Math.PI / 4;
+          const strokeAngle = Math.atan2(ty, tx);
+          const sw = 130 / (scale || 1);
+          w = Math.max(6/(scale||1), sw * Math.abs(Math.sin(strokeAngle - nibAngle)));
+          // Calligraphy: use fixed nib direction (not perpendicular to stroke)
+          px = Math.cos(nibAngle + Math.PI/2);
+          py = Math.sin(nibAngle + Math.PI/2);
+        } else {
+          const sw = 50 / (scale || 1);
+          w = sw * Math.sin(Math.PI * t);
+          px = -ty; py = tx;
+        }
+
+        left.push({ x: pts[i].x + px * w/2, y: pts[i].y + py * w/2 });
+        right.push({ x: pts[i].x - px * w/2, y: pts[i].y - py * w/2 });
+      }
+
+      // Trace outline
+      path.moveTo(left[0].x, left[0].y);
+      for (let i = 1; i < left.length; i++) path.lineTo(left[i].x, left[i].y);
+      for (let i = right.length - 1; i >= 0; i--) path.lineTo(right[i].x, right[i].y);
+      path.close();
+    }
+    return path;
+  }
+
+  /* ─── Path helpers ─── */
+  function getPathBounds(path) {
+    let x1=Infinity,y1=Infinity,x2=-Infinity,y2=-Infinity;
+    for (const c of path.commands) {
+      if (c.type==='Z') continue;
+      x1=Math.min(x1,c.x);x2=Math.max(x2,c.x);y1=Math.min(y1,c.y);y2=Math.max(y2,c.y);
+      if(c.x1!==undefined){x1=Math.min(x1,c.x1);x2=Math.max(x2,c.x1);y1=Math.min(y1,c.y1);y2=Math.max(y2,c.y1);}
+      if(c.x2!==undefined){x1=Math.min(x1,c.x2);x2=Math.max(x2,c.x2);y1=Math.min(y1,c.y2);y2=Math.max(y2,c.y2);}
+    }
+    return {x1,y1,x2,y2};
+  }
+
+  function shiftPath(path, dx, dy) {
+    const out = new opentype.Path();
+    for (const c of path.commands) {
+      if (c.type==='M') out.moveTo(c.x+dx,c.y+dy);
+      else if (c.type==='L') out.lineTo(c.x+dx,c.y+dy);
+      else if (c.type==='C') out.curveTo(c.x1+dx,c.y1+dy,c.x2+dx,c.y2+dy,c.x+dx,c.y+dy);
+      else if (c.type==='Q') out.quadraticCurveTo(c.x1+dx,c.y1+dy,c.x+dx,c.y+dy);
+      else if (c.type==='Z') out.close();
+    }
+    return out;
+  }
+
+  const TALL = new Set('ABCDEFGHIJKLMNOPQRSTUVWXYZbdfhiklt0123456789éàèùâêîôûëïüç'.split(''));
+  const DESC = new Set('gjpqy.,;'.split(''));
+  const PUNCT = new Set('@$%#\\/+=!?.,;:\'"()-_♥♦♣♠'.split(''));
+
+  /* ─── Build Font ─── */
+  function targetHeight(c) {
+    if (PUNCT.has(c) && !TALL.has(c)) return 200;
+    return TALL.has(c) ? 600 : 450;
+  }
+
+  // Normalise drawn strokes into font units, sized like its standalone character(s).
+  function buildGlyphGeometry(strokes, seq, tool, cw, ch, upm) {
+    const raw = strokesToPath(strokes, cw, ch, 1, upm, tool);
+    const b = getPathBounds(raw); if (b.x1 === Infinity) return null;
+    const gh = b.y2 - b.y1; if (gh <= 0) return null;
+    let th = 0, descender = false;
+    for (const c of seq) { th = Math.max(th, targetHeight(c)); if (DESC.has(c)) descender = true; }
+    const scaled = strokesToPath(strokes, cw, ch, th / gh, upm, tool);
+    const sb = getPathBounds(scaled); if (sb.x1 === Infinity) return null;
+    const path = shiftPath(scaled, 50 - sb.x1, descender ? -150 : 0);
+    const fb = getPathBounds(path);
+    return { path, advanceWidth: Math.max(200, (fb.x2 - fb.x1) + 100) };
+  }
+
+  /*
+   * A font file cannot shuffle glyphs the way the preview does, so variety has to come from
+   * more than one form per letter. When only one form was drawn, these gentle seeded tilts of
+   * it fill the empty forms — enough for the calt rules to break up repeated letters.
+   */
+  function jitterGeometry(geo, c, slot) {
+    let seed = (c.codePointAt(0) * 2654435761 + slot * 40503) >>> 0;
+    const rnd = () => {
+      seed = (Math.imul(seed, 1103515245) + 12345) >>> 0;
+      return seed / 4294967296;
+    };
+    const angle = (rnd() * 2 - 1) * 2.8 * Math.PI / 180;
+    const scale = 0.965 + rnd() * 0.07;
+    const shear = (rnd() * 2 - 1) * 0.045;
+    const dx = (rnd() * 2 - 1) * 12;
+    const b = getPathBounds(geo.path);
+    const ax = b.x1, cos = Math.cos(angle), sin = Math.sin(angle);
+    // Pivot on the left edge of the baseline: the letter tips and leans, it never floats away.
+    const tf = (x, y) => {
+      const sx = (x + shear * y - ax) * scale;
+      const sy = y * scale;
+      return { x: ax + sx * cos - sy * sin + dx, y: sx * sin + sy * cos };
+    };
+    const out = new opentype.Path();
+    for (const cm of geo.path.commands) {
+      const p = tf(cm.x, cm.y);
+      if (cm.type === 'M') out.moveTo(p.x, p.y);
+      else if (cm.type === 'L') out.lineTo(p.x, p.y);
+      else if (cm.type === 'C') { const c1 = tf(cm.x1, cm.y1), c2 = tf(cm.x2, cm.y2); out.curveTo(c1.x, c1.y, c2.x, c2.y, p.x, p.y); }
+      else if (cm.type === 'Q') { const c1 = tf(cm.x1, cm.y1); out.quadraticCurveTo(c1.x, c1.y, p.x, p.y); }
+      else if (cm.type === 'Z') out.close();
+    }
+    return { path: out, advanceWidth: geo.advanceWidth };
+  }
+
+  /*
+   * OpenType layout for the exported font:
+   *   liga — every drawn ligature rewrites its letter sequence into one glyph.
+   *   calt — contextual alternates pick a variation of each letter from the glyph before it,
+   *          which is how OpenType fonts vary letterforms across a text run, and step a
+   *          letter to another form when it follows itself ("balloon", "raccoon").
+   */
+  function buildGsub(baseGid, variantGlyphs, ligaGlyphs, baseOrder, spaceGid) {
+    const lookups = [];
+    const ligaLookupIndexes = [];
+
+    // Ligatures first (lower lookup indexes run first): longer sequences win over shorter ones.
+    const sortedLiga = ligaGlyphs.slice().sort((a, b) => b.seq.length - a.seq.length);
+    for (const lg of sortedLiga) {
+      const gids = Array.from(lg.seq).map(c => baseGid[c]);
+      if (gids.some(g => g === undefined)) continue;
+      lookups.push({
+        lookupType: 4,
+        lookupFlag: 0,
+        subtables: [{
+          substFormat: 1,
+          coverage: { format: 1, glyphs: [gids[0]] },
+          ligatureSets: [[{ ligGlyph: lg.gid, components: gids.slice(1) }]]
+        }]
+      });
+      ligaLookupIndexes.push(lookups.length - 1);
+    }
+
+    const posOf = {};
+    baseOrder.forEach((c, i) => { posOf[c] = i; });
+    const allGidsOf = {};
+    for (const c of baseOrder) {
+      allGidsOf[c] = [baseGid[c]].concat((variantGlyphs[c] || []).map(v => v.gid));
+    }
+
+    // Single substitutions are only reachable through the calt chain rules below.
+    function addSingleSubst(fromGid, toGid) {
+      lookups.push({
+        lookupType: 1,
+        lookupFlag: 0,
+        subtables: [{ substFormat: 2, coverage: { format: 1, glyphs: [fromGid] }, substitute: [toGid] }]
+      });
+      return lookups.length - 1;
+    }
+
+    // One target for every form of a letter, so the form already on the page decides the next.
+    function addSingleSubstToAll(fromGids, toGid) {
+      const coverage = fromGids.slice().sort((a, b) => a - b);
+      lookups.push({
+        lookupType: 1,
+        lookupFlag: 0,
+        subtables: [{ substFormat: 2, coverage: { format: 1, glyphs: coverage }, substitute: coverage.map(() => toGid) }]
+      });
+      return lookups.length - 1;
+    }
+
+    const caltSubtables = [];
+    for (const c of baseOrder) {
+      const variants = variantGlyphs[c] || [];
+      const n = variants.length + 1;           // base glyph + variations
+      if (n < 2) continue;
+      const inputGid = baseGid[c];
+      const offset = posOf[c];
+      const forms = [inputGid].concat(variants.map(v => v.gid)).sort((a, b) => a - b);
+
+      // A letter that follows itself must never look the same twice: whichever form the
+      // previous one took, this one steps to the next form. These rules run first, so they
+      // win over the neighbour rules below for words like "balloon" and "raccoon".
+      for (let i = 0; i < forms.length; i++) {
+        caltSubtables.push({
+          substFormat: 3,
+          backtrackCoverage: [{ format: 1, glyphs: [forms[i]] }],
+          inputCoverage: [{ format: 1, glyphs: forms }],
+          lookaheadCoverage: [],
+          lookupRecords: [{ sequenceIndex: 0, lookupListIndex: addSingleSubstToAll(forms, forms[(i + 1) % forms.length]) }]
+        });
+      }
+
+      // Variant k is used when (previous glyph position + this position) % n === k, so the
+      // same letter looks different depending on the letter before it.
+      for (let k = 1; k < n; k++) {
+        const ctx = [];
+        for (const o of baseOrder) {
+          if ((posOf[o] + offset) % n === k) ctx.push.apply(ctx, allGidsOf[o]);
+        }
+        if (!ctx.length) continue;
+        ctx.sort((a, b) => a - b);
+        const target = addSingleSubst(inputGid, variants[k - 1].gid);
+        caltSubtables.push({
+          substFormat: 3,
+          backtrackCoverage: [{ format: 1, glyphs: ctx }],
+          inputCoverage: [{ format: 1, glyphs: [inputGid] }],
+          lookaheadCoverage: [],
+          lookupRecords: [{ sequenceIndex: 0, lookupListIndex: target }]
+        });
+      }
+
+      // A word's first letter has no glyph before it, so seed its variant from its own position.
+      const startVariant = ((offset * 7) % (n - 1)) + 1;
+      const startTarget = addSingleSubst(inputGid, variants[startVariant - 1].gid);
+      caltSubtables.push({
+        substFormat: 3,
+        backtrackCoverage: [{ format: 1, glyphs: [spaceGid] }],
+        inputCoverage: [{ format: 1, glyphs: [inputGid] }],
+        lookaheadCoverage: [],
+        lookupRecords: [{ sequenceIndex: 0, lookupListIndex: startTarget }]
+      });
+    }
+
+    let caltIndex = -1;
+    if (caltSubtables.length) {
+      lookups.push({ lookupType: 6, lookupFlag: 0, subtables: caltSubtables });
+      caltIndex = lookups.length - 1;
+    }
+
+    const features = [];
+    if (caltIndex >= 0) features.push({ tag: 'calt', feature: { featureParams: 0, lookupListIndexes: [caltIndex] } });
+    if (ligaLookupIndexes.length) features.push({ tag: 'liga', feature: { featureParams: 0, lookupListIndexes: ligaLookupIndexes } });
+    if (!features.length) return null;
+
+    const langSys = { reqFeatureIndex: 0xFFFF, featureIndexes: features.map((f, i) => i) };
+    return {
+      scripts: ['DFLT', 'latn'].map(tag => ({ tag, script: { defaultLangSys: langSys, langSysRecords: [] } })),
+      features,
+      lookups
+    };
+  }
+
+  function buildFont() {
+    const upm = 1000, cw = displayW || 600, ch = displayH || 300;
+    // Global tracking: every advance width moves by the same amount, so the whole
+    // font tightens or loosens together without touching the drawn shapes.
+    const adv = w => Math.max(40, Math.round(w + tracking));
+    const ndPath = new opentype.Path();
+    ndPath.moveTo(50,-200);ndPath.lineTo(50,800);ndPath.lineTo(450,800);ndPath.lineTo(450,-200);ndPath.close();
+    ndPath.moveTo(90,-160);ndPath.lineTo(410,-160);ndPath.lineTo(410,760);ndPath.lineTo(90,760);ndPath.close();
+    const glyphs = [
+      new opentype.Glyph({name:'.notdef',unicode:0,advanceWidth:500,path:ndPath}),
+      new opentype.Glyph({name:'space',unicode:32,advanceWidth:adv(250),path:new opentype.Path()})
+    ];
+    const spaceGid = 1;
+    const baseGid = {}, variantGlyphs = {}, baseOrder = [];
+
+    CHARS.forEach((c, ci) => {
+      const slots = glyphData[c];
+      // A variation only makes sense on top of a base glyph.
+      if (!slots || !slots[0] || !slots[0].length) return;
+      const forms = [];
+      for (let v = 0; v < Math.min(slots.length, 3); v++) {
+        const strokes = slots[v]; if (!strokes || !strokes.length) continue;
+        const slotTool = (toolData[c] && toolData[c][v]) || 'pen';
+        const geo = buildGlyphGeometry(strokes, c, slotTool, cw, ch, upm);
+        if (geo) forms.push(geo);
+      }
+      if (!forms.length) return;
+      // Three forms per letter is what makes repeated letters vary; drawn ones are used first.
+      while (forms.length < 3) forms.push(jitterGeometry(forms[0], c, forms.length));
+      forms.forEach((geo, v) => {
+        const gid = glyphs.length;
+        const unicode = v === 0 ? c.codePointAt(0) : PUA_VAR + ci * 8 + v;
+        glyphs.push(new opentype.Glyph({
+          name: charName(c) + (v > 0 ? '_var' + v : ''),
+          unicode, advanceWidth: adv(geo.advanceWidth), path: geo.path
+        }));
+        if (v === 0) baseGid[c] = gid;
+        else (variantGlyphs[c] = variantGlyphs[c] || []).push({ gid, unicode });
+      });
+      baseOrder.push(c);
+    });
+
+    const ligaGlyphs = [];
+    ligatures.forEach((lg, li) => {
+      if (!lg.strokes || !lg.strokes.length) return;
+      const geo = buildGlyphGeometry(lg.strokes, lg.seq, lg.tool || 'pen', cw, ch, upm);
+      if (!geo) return;
+      const gid = glyphs.length;
+      glyphs.push(new opentype.Glyph({
+        name: 'liga_' + Array.from(lg.seq).map(c => charName(c)).join('_'),
+        unicode: PUA_LIGA + li,
+        advanceWidth: adv(geo.advanceWidth),
+        path: geo.path
+      }));
+      ligaGlyphs.push({ seq: lg.seq, gid });
+    });
+
+    const font = new opentype.Font({ familyName:'MyHandwriting', styleName:'Regular', unitsPerEm:1000, ascender:800, descender:-200, glyphs });
+    const gsub = buildGsub(baseGid, variantGlyphs, ligaGlyphs, baseOrder, spaceGid);
+    if (gsub) font.tables.gsub = gsub;
+    return font;
+  }
+
+  /* ─── TrueType (TTF) writer ───
+   * opentype.js can only write CFF-flavoured .otf files, so the TrueType export is
+   * assembled here: the same glyphs, with their cubic curves turned into quadratic
+   * TrueType outlines, plus the layout (GSUB) and metadata tables of the CFF build
+   * copied byte for byte — so both files shape and space identically.
+   */
+  function sfntChecksum(bytes) {
+    let sum = 0;
+    const n = (bytes.length + 3) & ~3;
+    for (let i = 0; i < n; i += 4) {
+      const word = ((bytes[i] || 0) << 24) | ((bytes[i+1] || 0) << 16) | ((bytes[i+2] || 0) << 8) | (bytes[i+3] || 0);
+      sum = (sum + (word >>> 0)) >>> 0;
+    }
+    return sum >>> 0;
+  }
+
+  // Split a single-font sfnt (OTF or TTF) into its raw tables by tag.
+  function sfntReadTables(buf) {
+    const dv = new DataView(buf);
+    const count = dv.getUint16(4);
+    const out = {};
+    for (let i = 0; i < count; i++) {
+      const p = 12 + i * 16;
+      let tag = '';
+      for (let j = 0; j < 4; j++) tag += String.fromCharCode(dv.getUint8(p + j));
+      const offset = dv.getUint32(p + 8), length = dv.getUint32(p + 12);
+      out[tag] = new Uint8Array(buf.slice(offset, offset + length));
+    }
+    return out;
+  }
+
+  // Lay tables out in an sfnt container with a sorted directory and per-table checksums.
+  function sfntAssemble(tables, version) {
+    tables.sort((a, b) => (a.tag < b.tag ? -1 : a.tag > b.tag ? 1 : 0));
+    const count = tables.length;
+    const entrySelector = Math.floor(Math.log(count) / Math.LN2);
+    const searchRange = 16 * Math.pow(2, entrySelector);
+    let offset = 12 + count * 16;
+    const records = tables.map(t => {
+      const rec = { tag: t.tag, data: t.data, offset, length: t.data.length };
+      offset += (t.data.length + 3) & ~3;
+      return rec;
+    });
+    const bytes = new Uint8Array(offset);
+    const dv = new DataView(bytes.buffer);
+    dv.setUint32(0, version);
+    dv.setUint16(4, count);
+    dv.setUint16(6, searchRange);
+    dv.setUint16(8, entrySelector);
+    dv.setUint16(10, count * 16 - searchRange);
+    records.forEach((rec, i) => {
+      const p = 12 + i * 16;
+      for (let j = 0; j < 4; j++) dv.setUint8(p + j, rec.tag.charCodeAt(j));
+      dv.setUint32(p + 4, sfntChecksum(rec.data));
+      dv.setUint32(p + 8, rec.offset);
+      dv.setUint32(p + 12, rec.length);
+      bytes.set(rec.data, rec.offset);
+    });
+    return { bytes, records };
+  }
+
+  function cubicPoint(p0, c, t) {
+    const u = 1 - t, a = u*u*u, b = 3*u*u*t, d = 3*u*t*t, e = t*t*t;
+    return {
+      x: a*p0.x + b*c.x1 + d*c.x2 + e*c.x,
+      y: a*p0.y + b*c.y1 + d*c.y2 + e*c.y
+    };
+  }
+
+  // The single quadratic that starts and ends with the cubic and meets it at its middle.
+  function quadControl(p0, c) {
+    const m = cubicPoint(p0, c, 0.5);
+    return { x: 2 * m.x - (p0.x + c.x) / 2, y: 2 * m.y - (p0.y + c.y) / 2 };
+  }
+
+  function splitCubic(p0, c) {
+    const mid = (a, b) => ({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 });
+    const p1 = { x: c.x1, y: c.y1 }, p2 = { x: c.x2, y: c.y2 }, p3 = { x: c.x, y: c.y };
+    const a1 = mid(p0, p1), a2 = mid(p1, p2), a3 = mid(p2, p3);
+    const b1 = mid(a1, a2), b2 = mid(a2, a3), c1 = mid(b1, b2);
+    return [
+      { p0: p0, c1: a1, c2: b1, p3: c1 },
+      { p0: c1, c1: b2, c2: a3, p3: p3 }
+    ];
+  }
+
+  // Cubic → quadratic: halve the curve until one quadratic fits it within half a unit.
+  function cubicToQuads(p0, c, depth, out) {
+    const q = quadControl(p0, c);
+    if (depth > 0) {
+      let err = 0;
+      for (const t of [0.25, 0.75]) {
+        const on = cubicPoint(p0, c, t), u = 1 - t;
+        const approx = {
+          x: u*u*p0.x + 2*t*u*q.x + t*t*c.x,
+          y: u*u*p0.y + 2*t*u*q.y + t*t*c.y
+        };
+        err = Math.max(err, Math.hypot(on.x - approx.x, on.y - approx.y));
+      }
+      if (err > 0.5) {
+        const halves = splitCubic(p0, c);
+        for (const h of halves) {
+          cubicToQuads(h.p0, { x1: h.c1.x, y1: h.c1.y, x2: h.c2.x, y2: h.c2.y, x: h.p3.x, y: h.p3.y }, depth - 1, out);
+        }
+        return;
+      }
+    }
+    out.push({ x: q.x, y: q.y, on: false });
+    out.push({ x: c.x, y: c.y, on: true });
+  }
+
+  // Font path → TrueType contours: [[{x, y, on}, ...], ...] with rounded coordinates.
+  function pathToContours(commands) {
+    const contours = [];
+    let cur = null;
+    let last = { x: 0, y: 0 };
+
+    function close() {
+      if (!cur) return;
+      const pts = [];
+      for (const p of cur) {
+        const prev = pts[pts.length - 1];
+        if (prev && prev.x === p.x && prev.y === p.y && p.on) { prev.on = true; continue; }
+        if (prev && prev.x === p.x && prev.y === p.y) continue;
+        pts.push(p);
+      }
+      // TrueType contours close themselves, so drop a point that repeats the start.
+      while (pts.length > 1) {
+        const a = pts[0], b = pts[pts.length - 1];
+        if (a.x === b.x && a.y === b.y) { if (b.on) a.on = true; pts.pop(); } else break;
+      }
+      const hasOn = pts.some(p => p.on);
+      if (pts.length > 1 && hasOn) contours.push(pts);
+      cur = null;
+    }
+
+    for (const cmd of commands) {
+      if (cmd.type === 'M') {
+        close();
+        cur = [{ x: Math.round(cmd.x), y: Math.round(cmd.y), on: true }];
+        last = { x: cmd.x, y: cmd.y };
+      } else if (cmd.type === 'L') {
+        if (!cur) cur = [{ x: Math.round(last.x), y: Math.round(last.y), on: true }];
+        cur.push({ x: Math.round(cmd.x), y: Math.round(cmd.y), on: true });
+        last = { x: cmd.x, y: cmd.y };
+      } else if (cmd.type === 'C') {
+        if (!cur) cur = [{ x: Math.round(last.x), y: Math.round(last.y), on: true }];
+        const quads = [];
+        cubicToQuads(last, cmd, 6, quads);
+        for (const p of quads) cur.push({ x: Math.round(p.x), y: Math.round(p.y), on: p.on });
+        last = { x: cmd.x, y: cmd.y };
+      } else if (cmd.type === 'Q') {
+        if (!cur) cur = [{ x: Math.round(last.x), y: Math.round(last.y), on: true }];
+        cur.push({ x: Math.round(cmd.x1), y: Math.round(cmd.y1), on: false });
+        cur.push({ x: Math.round(cmd.x), y: Math.round(cmd.y), on: true });
+        last = { x: cmd.x, y: cmd.y };
+      } else if (cmd.type === 'Z') {
+        close();
+      }
+    }
+    close();
+    return contours;
+  }
+
+  // One `glyf` entry: header, contour end points, flags and delta-encoded coordinates.
+  function makeGlyfGlyph(contours) {
+    const pts = [], ends = [];
+    for (const c of contours) {
+      for (const p of c) pts.push(p);
+      ends.push(pts.length - 1);
+    }
+    if (!pts.length) return null;
+
+    let xMin = Infinity, yMin = Infinity, xMax = -Infinity, yMax = -Infinity;
+    for (const p of pts) {
+      if (p.x < xMin) xMin = p.x; if (p.x > xMax) xMax = p.x;
+      if (p.y < yMin) yMin = p.y; if (p.y > yMax) yMax = p.y;
+    }
+
+    const flags = [], xs = [], ys = [];
+    let px = 0, py = 0;
+    for (const p of pts) {
+      let f = p.on ? 0x01 : 0x00;
+      const dx = p.x - px, dy = p.y - py;
+      if (dx === 0) f |= 0x10;
+      else if (dx > -256 && dx < 256) { f |= 0x02; if (dx > 0) f |= 0x10; xs.push(Math.abs(dx)); }
+      else xs.push((dx >> 8) & 0xff, dx & 0xff);
+      if (dy === 0) f |= 0x20;
+      else if (dy > -256 && dy < 256) { f |= 0x04; if (dy > 0) f |= 0x20; ys.push(Math.abs(dy)); }
+      else ys.push((dy >> 8) & 0xff, dy & 0xff);
+      flags.push(f);
+      px = p.x; py = p.y;
+    }
+
+    const bytes = [];
+    const push16 = v => bytes.push((v >> 8) & 0xff, v & 0xff);
+    push16(contours.length);
+    push16(xMin); push16(yMin); push16(xMax); push16(yMax);
+    for (const e of ends) push16(e);
+    push16(0);                       // no hinting instructions
+    for (const f of flags) bytes.push(f);
+    for (const v of xs) bytes.push(v);
+    for (const v of ys) bytes.push(v);
+
+    return { bytes: Uint8Array.from(bytes), points: pts.length, xMin, yMin, xMax, yMax };
+  }
+
+  function makeMaxpTable(numGlyphs, maxPoints, maxContours) {
+    const dv = new DataView(new ArrayBuffer(32));
+    dv.setUint32(0, 0x00010000);
+    dv.setUint16(4, numGlyphs);
+    dv.setUint16(6, maxPoints);
+    dv.setUint16(8, maxContours);
+    dv.setUint16(14, 2);             // maxZones
+    return new Uint8Array(dv.buffer);
+  }
+
+  function buildTTF(font) {
+    const src = sfntReadTables(font.toArrayBuffer());
+    if (!src['head'] || !src['hhea'] || !src['hmtx'] || !src['cmap'] || !src['name'] || !src['post']) {
+      throw new Error('Could not read the OpenType build');
+    }
+    const glyphs = font.glyphs;
+    const chunks = [], locaOffsets = [], glyphBoxes = [];
+    let glyfSize = 0, maxPoints = 0, maxContours = 0;
+    let xMin = 0, yMin = 0, xMax = 0, yMax = 0, boxed = false;
+
+    for (let i = 0; i < glyphs.length; i++) {
+      locaOffsets.push(glyfSize);
+      const g = glyphs.get(i);
+      const contours = pathToContours((g.path && g.path.commands) || []);
+      const glyph = contours.length ? makeGlyfGlyph(contours) : null;
+      glyphBoxes.push(glyph);
+      if (!glyph) continue;             // e.g. space: empty entry, zero-length glyph
+      maxPoints = Math.max(maxPoints, glyph.points);
+      maxContours = Math.max(maxContours, contours.length);
+      if (!boxed) {
+        xMin = glyph.xMin; yMin = glyph.yMin; xMax = glyph.xMax; yMax = glyph.yMax; boxed = true;
+      } else {
+        xMin = Math.min(xMin, glyph.xMin); yMin = Math.min(yMin, glyph.yMin);
+        xMax = Math.max(xMax, glyph.xMax); yMax = Math.max(yMax, glyph.yMax);
+      }
+      chunks.push(glyph.bytes);
+      glyfSize += glyph.bytes.length;
+      const pad = (4 - (glyfSize & 3)) & 3;
+      if (pad) { chunks.push(new Uint8Array(pad)); glyfSize += pad; }
+    }
+    locaOffsets.push(glyfSize);
+
+    const glyf = new Uint8Array(glyfSize);
+    let at = 0;
+    for (const c of chunks) { glyf.set(c, at); at += c.length; }
+
+    const loca = new Uint8Array((glyphs.length + 1) * 4);
+    const locaDV = new DataView(loca.buffer);
+    locaOffsets.forEach((o, i) => locaDV.setUint32(i * 4, o));
+
+    // TrueType side bearings have to match each outline's own xMin, which the CFF build
+    // does not supply, so hmtx is rebuilt here and hhea's extents follow it.
+    const srcHmtx = new DataView(src['hmtx'].buffer, src['hmtx'].byteOffset, src['hmtx'].length);
+    const hmtx = new Uint8Array(glyphs.length * 4);
+    const hmtxDV = new DataView(hmtx.buffer);
+    let minLSB = 0, minRSB = 0, maxExtent = 0;
+    for (let i = 0; i < glyphs.length; i++) {
+      const advance = srcHmtx.getUint16(i * 4);
+      const box = glyphBoxes[i];
+      const lsb = box ? box.xMin : 0;
+      const right = advance - (box ? box.xMax : 0);
+      hmtxDV.setUint16(i * 4, advance);
+      hmtxDV.setInt16(i * 4 + 2, lsb);
+      if (i === 0) { minLSB = lsb; minRSB = right; maxExtent = box ? box.xMax : 0; }
+      else {
+        minLSB = Math.min(minLSB, lsb);
+        minRSB = Math.min(minRSB, right);
+        maxExtent = Math.max(maxExtent, box ? box.xMax : 0);
+      }
+    }
+    const hhea = src['hhea'].slice();
+    const hheaDV = new DataView(hhea.buffer);
+    hheaDV.setInt16(12, minLSB);
+    hheaDV.setInt16(14, minRSB);
+    hheaDV.setInt16(16, maxExtent);
+
+    // Outlines live in glyf/loca now, so head needs the long loca format and a fresh bbox.
+    const head = src['head'].slice();
+    const headDV = new DataView(head.buffer);
+    headDV.setUint32(8, 0);          // checkSumAdjustment is recomputed below
+    headDV.setInt16(50, 1);          // indexToLocFormat = long
+    headDV.setInt16(52, 0);          // glyphDataFormat
+    if (boxed) {
+      headDV.setInt16(36, xMin); headDV.setInt16(38, yMin);
+      headDV.setInt16(40, xMax); headDV.setInt16(42, yMax);
+    }
+
+    const tables = [
+      { tag: 'OS/2', data: src['OS/2'] },
+      { tag: 'cmap', data: src['cmap'] },
+      { tag: 'glyf', data: glyf },
+      { tag: 'head', data: head },
+      { tag: 'hhea', data: hhea },
+      { tag: 'hmtx', data: hmtx },
+      { tag: 'loca', data: loca },
+      { tag: 'maxp', data: makeMaxpTable(glyphs.length, maxPoints, maxContours) },
+      { tag: 'name', data: src['name'] },
+      { tag: 'post', data: src['post'] }
+    ];
+    // Same substitution rules as the OTF: the GSUB table only refers to glyph ids.
+    if (src['GSUB']) tables.push({ tag: 'GSUB', data: src['GSUB'] });
+
+    const built = sfntAssemble(tables.filter(t => t.data), 0x00010000);
+    const headRec = built.records.find(r => r.tag === 'head');
+    if (headRec) {
+      const dv = new DataView(built.bytes.buffer);
+      dv.setUint32(headRec.offset + 8, (0xB1B0AFBA - sfntChecksum(built.bytes)) >>> 0);
+    }
+    return built.bytes.buffer;
+  }
+
+  /* ─── Preview ─── */
+  let previewURL = null;
+
+  // The private-use codepoints that stand in for each character variation / ligature.
+  function previewPools() {
+    const haveBase = {}, pool = {}, ligaMap = {};
+    CHARS.forEach(c => {
+      const s = glyphData[c];
+      if (s && s[0] && s[0].length) haveBase[c] = true;
+    });
+    CHARS.forEach((c, ci) => {
+      const s = glyphData[c];
+      if (!s || !haveBase[c]) return;
+      const choices = [c];
+      for (let v = 1; v < Math.min(s.length, 3); v++) {
+        if (s[v] && s[v].length) choices.push(String.fromCharCode(PUA_VAR + ci * 8 + v));
+      }
+      if (choices.length > 1) pool[c] = choices;
+    });
+    ligatures.forEach((lg, li) => {
+      if (!lg.strokes || !lg.strokes.length) return;
+      if (Array.from(lg.seq).some(c => !haveBase[c])) return;
+      ligaMap[lg.seq] = PUA_LIGA + li;
+    });
+    return { pool, ligaMap };
+  }
+
+  // Pick a random variation per character and swap known sequences for their ligature.
+  function randomizeText(text) {
+    const { pool, ligaMap } = previewPools();
+    const seqs = Object.keys(ligaMap).sort((a, b) => b.length - a.length);
+    let out = '';
+    for (let i = 0; i < text.length; i++) {
+      const c = text[i];
+      if (c === '\n' || c === '\r' || c === '\t') { out += c; continue; }
+      let hit = null;
+      for (const seq of seqs) { if (text.startsWith(seq, i)) { hit = seq; break; } }
+      if (hit) { out += String.fromCharCode(ligaMap[hit]); i += hit.length - 1; continue; }
+      const choices = pool[c];
+      out += (choices && choices.length) ? choices[Math.floor(Math.random() * choices.length)] : c;
+    }
+    return out;
+  }
+
+  function updatePreview() {
+    const drawn = Object.values(glyphData).filter(s => s && s[0] && s[0].length > 0).length;
+    const render = document.getElementById('previewRender');
+    if (!drawn) { render.style.fontFamily = ''; updatePreviewText(); return; }
+    try {
+      const font = buildFont();
+      const buf = font.toArrayBuffer ? font.toArrayBuffer() : null; if (!buf) return;
+      if (previewURL) { URL.revokeObjectURL(previewURL); previewURL = null; }
+      previewURL = URL.createObjectURL(new Blob([buf], {type:'font/otf'}));
+      let s = document.getElementById('previewFontStyle');
+      if (!s) { s = document.createElement('style'); s.id = 'previewFontStyle'; document.head.appendChild(s); }
+      s.textContent = "@font-face{font-family:'MyHandwriting';src:url('" + previewURL + "') format('opentype');}";
+      render.style.fontFamily = "'MyHandwriting',serif";
+      updatePreviewText();
+    } catch(e) { console.error('Preview error:', e); }
+  }
+
+  function updatePreviewText() {
+    const text = document.getElementById('previewInput').value || '';
+    const render = document.getElementById('previewRender');
+    const drawn = Object.values(glyphData).filter(s => s && s[0] && s[0].length > 0).length;
+    if (!text || !drawn) {
+      render.innerHTML = '';
+      const ph = document.createElement('span');
+      ph.className = 'preview-placeholder'; ph.id = 'previewPlaceholder';
+      ph.textContent = drawn ? 'Type something to preview…' : 'Draw some characters first…';
+      render.appendChild(ph);
+      return;
+    }
+    render.textContent = randomizeText(text);
+  }
+
+  document.getElementById('previewInput').addEventListener('input', updatePreviewText);
+  document.getElementById('shuffleBtn').addEventListener('click', updatePreviewText);
+
+  /* ─── Export ─── */
+  const trackingRange = document.getElementById('trackingRange');
+  const trackingValue = document.getElementById('trackingValue');
+  const downloadBtn = document.getElementById('downloadBtn');
+
+  function saveSettings() {
+    try {
+      localStorage.setItem('font_builder_settings', JSON.stringify({ tracking, format: exportFormat, langs: activeLangs }));
+    } catch (e) {}
+  }
+
+  let previewTimer = null;
+  function schedulePreview() {
+    clearTimeout(previewTimer);
+    previewTimer = setTimeout(updatePreview, 200);
+  }
+
+  function applyTracking(v, persist) {
+    tracking = Math.max(-150, Math.min(300, Math.round(v || 0)));
+    trackingRange.value = String(tracking);
+    trackingValue.textContent = (tracking > 0 ? '+' : '') + tracking;
+    if (persist !== false) { saveSettings(); schedulePreview(); }
+  }
+
+  function setFormat(f, persist) {
+    exportFormat = f === 'ttf' ? 'ttf' : 'otf';
+    document.querySelectorAll('.format-btn').forEach(b => b.classList.toggle('active', b.dataset.format === exportFormat));
+    downloadBtn.textContent = '⬇ Download MyHandwriting.' + exportFormat;
+    if (persist !== false) saveSettings();
+  }
+
+  trackingRange.addEventListener('input', () => applyTracking(parseInt(trackingRange.value, 10)));
+  document.getElementById('trackingReset').addEventListener('click', () => applyTracking(0));
+  document.querySelectorAll('.format-btn').forEach(b => b.addEventListener('click', () => setFormat(b.dataset.format)));
+
+  function downloadBuffer(buf, fileName, mime) {
+    const url = URL.createObjectURL(new Blob([buf], { type: mime }));
+    const link = document.createElement('a');
+    link.href = url; link.download = fileName;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 10000);
+  }
+
+  downloadBtn.addEventListener('click', () => {
+    const drawn = Object.values(glyphData).filter(s => s && s[0] && s[0].length > 0).length;
+    if (!drawn) { showNotify('Draw at least one character before exporting.', 'error'); return; }
+    try {
+      const font = buildFont();
+      const ext = exportFormat;
+      const fileName = 'MyHandwriting.' + ext;
+      const buf = ext === 'ttf' ? buildTTF(font) : font.toArrayBuffer();
+      downloadBuffer(buf, fileName, ext === 'ttf' ? 'font/ttf' : 'font/otf');
+      document.getElementById('exportInfo').textContent = '✓ Exported ' + drawn + ' glyphs as ' + ext.toUpperCase();
+      showNotify('Font downloaded as ' + fileName, 'success');
+    } catch(e) { console.error(e); showNotify('Export failed: ' + e.message, 'error'); }
+  });
+
+  /* ─── Import ─── */
+  document.getElementById('importInput').addEventListener('change', function() {
+    const file = this.files[0]; if (!file) return;
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      try {
+        const imp = opentype.parse(e.target.result);
+        let matched = 0;
+        for (const c of CHARS) {
+          const g = imp.charToGlyph(c);
+          if (!g || g.name === '.notdef' || !g.path || !g.path.commands.length) continue;
+          const upm = imp.unitsPerEm || 1000;
+          const stroke = [];
+          for (const cmd of g.path.commands) {
+            if (cmd.type === 'Z') continue;
+            const fx = (cmd.x / upm) * displayW, fy = ((upm - cmd.y - 200) / upm) * displayH;
+            if (isFinite(fx) && isFinite(fy)) stroke.push({x:fx, y:fy});
+          }
+          if (stroke.length < 2) continue;
+          if (!glyphData[c]) glyphData[c] = [];
+          if (!glyphData[c][0] || !glyphData[c][0].length) { glyphData[c][0] = [stroke]; matched++; }
+        }
+        saveToStorage(); refreshGrid(); updateProgress(); updatePreview();
+        showNotify('Imported ' + matched + ' glyphs from ' + file.name, 'success');
+      } catch(err) { console.error(err); showNotify('Failed to parse font: ' + err.message, 'error'); }
+    };
+    reader.readAsArrayBuffer(file);
+    this.value = '';
+  });
+
+  /* ─── Install as an app (PWA) ─── */
+  const installBtn = document.getElementById('installBtn');
+  let installPrompt = null;
+  const isStandalone = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+  const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+  if (isIOS && !isStandalone) installBtn.style.display = 'inline-flex';
+
+  window.addEventListener('beforeinstallprompt', e => {
+    e.preventDefault();
+    installPrompt = e;
+    if (!isStandalone) installBtn.style.display = 'inline-flex';
+  });
+  window.addEventListener('appinstalled', () => {
+    installPrompt = null;
+    installBtn.style.display = 'none';
+    showNotify('Installed — open it from your home screen any time.', 'success');
+  });
+  installBtn.addEventListener('click', async () => {
+    if (installPrompt) {
+      installPrompt.prompt();
+      await installPrompt.userChoice;
+      installPrompt = null;
+      installBtn.style.display = 'none';
+    } else if (isIOS) {
+      alert('To add it to your iPhone / iPad home screen:\n\n1. Tap the Share button (square with an arrow)\n2. Scroll down and tap "Add to Home Screen"\n3. Tap "Add"');
+    } else {
+      showNotify('Use your browser menu → "Install app" / "Add to Home screen".', 'info');
+    }
+  });
+
+  if ('serviceWorker' in navigator && location.protocol.indexOf('http') === 0) {
+    const hadController = !!navigator.serviceWorker.controller;
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('sw.js').then(reg => {
+        // Look for a newer build now, and every time the app is brought back to
+        // the foreground (phones resume apps instead of reloading them).
+        reg.update().catch(() => {});
+        document.addEventListener('visibilitychange', () => {
+          if (!document.hidden) reg.update().catch(() => {});
+        });
+      }).catch(() => {});
+    });
+    // A new worker took over from an older one: reload once so the page stops
+    // running the build it was cached with.
+    let reloadedForUpdate = false;
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (!hadController || reloadedForUpdate) return;
+      reloadedForUpdate = true;
+      location.reload();
+    });
+  }
+
+  /* ─── Init ─── */
+  loadFromStorage();
+  buildLangUI();
+  buildGrid();
+  refreshLigas();
+  resizeCanvas();
+  updateProgress();
+  updateDrawUI();
+  setFormat(exportFormat, false);
+  applyTracking(tracking, false);
+  updatePreview();
+  window.addEventListener('resize', resizeCanvas);
+  window.addEventListener('load', resizeCanvas);
+})();
+</script>
+</body>
+</html>
